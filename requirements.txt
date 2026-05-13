@@ -1,0 +1,42 @@
+# ── Data & Database ────────────────────────────────────────────────
+pandas==2.1.4
+numpy==1.26.4
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+
+# ── NLP & ML ───────────────────────────────────────────────────────
+nltk==3.9.1
+scikit-learn==1.5.2
+joblib==1.4.2
+
+# ── Experiment Tracking ────────────────────────────────────────────
+mlflow==2.18.0
+
+# ── API Serving ────────────────────────────────────────────────────
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.10.2
+jinja2==3.1.4
+python-multipart==0.0.12
+
+# ── AWS ────────────────────────────────────────────────────────────
+boto3==1.35.74
+botocore==1.35.74
+
+# ── Monitoring ─────────────────────────────────────────────────────
+evidently==0.4.33
+prometheus-fastapi-instrumentator==7.0.0
+prometheus-client==0.21.1
+
+# ── Notebook & Dev ─────────────────────────────────────────────────
+ipykernel==6.29.5
+jupyter==1.1.1
+
+# ── Testing & Linting ──────────────────────────────────────────────
+pytest==8.3.4
+flake8==7.1.1
+
+# ── Utilities ──────────────────────────────────────────────────────
+python-dotenv==1.0.1
+pyyaml==6.0.2
+setuptools==75.6.0
