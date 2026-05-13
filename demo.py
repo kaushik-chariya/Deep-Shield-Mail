@@ -1,43 +1,59 @@
+import sys
+
 from src.data_access.email_data import EmailData
 from src.data_access.load_data import LoadData
 
 from src.utils.logger import logger
+from src.utils.exception import CustomException
 
 
-logger.info("🚀 Demo started")
+if __name__ == "__main__":
 
+    try:
 
-# ─────────────────────────────────────────────
-# Step 1 → Insert CSV into PostgreSQL
-# ─────────────────────────────────────────────
-logger.info(
-    "📂 Starting CSV insertion process"
-)
+        logger.info("🚀 Demo started")
 
-email_obj = EmailData()
+        # ─────────────────────────────────────────────
+        # Step 1 → Insert CSV into PostgreSQL
+        # ─────────────────────────────────────────────
+        logger.info(
+            "📂 Starting CSV insertion process"
+        )
 
-email_obj.insert_csv_to_postgres(
-    "data/raw/archive/enron_spam_data.csv"
-)
+        email_obj = EmailData()
 
-logger.info(
-    "✅ CSV insertion process completed"
-)
+        email_obj.insert_csv_to_postgres(
+            "data/raw/archive/enron_spam_data.csv"
+        )
 
+        logger.info(
+            "✅ CSV insertion process completed"
+        )
 
-# ─────────────────────────────────────────────
-# Step 2 → Fetch data from PostgreSQL
-# ─────────────────────────────────────────────
-logger.info(
-    "📥 Starting data loading process"
-)
+        # ─────────────────────────────────────────────
+        # Step 2 → Fetch data from PostgreSQL
+        # ─────────────────────────────────────────────
+        logger.info(
+            "📥 Starting data loading process"
+        )
 
-load_obj = LoadData()
+        load_obj = LoadData()
 
-df = load_obj.fetch_data()
+        df = load_obj.fetch_data()
 
-logger.info(
-    "✅ Data fetched successfully"
-)
+        logger.info(
+            f"✅ Data fetched successfully | Shape: {df.shape}"
+        )
 
-logger.info("🏁 Demo completed")
+        logger.info("🏁 Demo completed")
+
+    except Exception as e:
+
+        logger.exception(
+            "❌ Error occurred in demo.py"
+        )
+
+        raise CustomException(
+            e,
+            sys
+        )

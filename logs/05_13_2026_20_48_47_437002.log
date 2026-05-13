@@ -1,0 +1,23 @@
+[ 2026-05-13 20:48:47,438 ] [ INFO ] [ logger.py:73 ] 🚀 ✅ Logger configured successfully
+[ 2026-05-13 20:48:47,573 ] [ INFO ] [ demo.py:7 ] 🚀 🚀 Demo started
+[ 2026-05-13 20:48:47,573 ] [ INFO ] [ demo.py:13 ] 🚀 📂 Starting CSV insertion process
+[ 2026-05-13 20:48:47,573 ] [ INFO ] [ email_data.py:16 ] 🚀 📂 Reading CSV file: data/raw/archive/enron_spam_data.csv
+[ 2026-05-13 20:48:47,870 ] [ INFO ] [ email_data.py:21 ] 🚀 ✅ CSV loaded successfully
+[ 2026-05-13 20:48:47,870 ] [ INFO ] [ email_data.py:22 ] 🚀 📊 Total rows found: 33716
+[ 2026-05-13 20:48:47,870 ] [ INFO ] [ postgres_db_connection.py:10 ] 🚀 🔌 Connecting to PostgreSQL database
+[ 2026-05-13 20:48:47,916 ] [ INFO ] [ postgres_db_connection.py:21 ] 🚀 ✅ PostgreSQL connection established
+[ 2026-05-13 20:48:47,916 ] [ INFO ] [ email_data.py:27 ] 🚀 ✅ PostgreSQL connection established
+[ 2026-05-13 20:48:47,916 ] [ INFO ] [ email_data.py:32 ] 🚀 ✅ Cursor created
+[ 2026-05-13 20:48:47,925 ] [ INFO ] [ email_data.py:39 ] 🚀 📦 Existing rows in table: 33716
+[ 2026-05-13 20:48:47,925 ] [ WARNING ] [ email_data.py:43 ] 🚀 ⚠️ Data already exists in table!
+[ 2026-05-13 20:48:47,925 ] [ INFO ] [ email_data.py:50 ] 🚀 🔒 Database connection closed
+[ 2026-05-13 20:48:47,927 ] [ INFO ] [ demo.py:23 ] 🚀 ✅ CSV insertion process completed
+[ 2026-05-13 20:48:47,927 ] [ INFO ] [ demo.py:31 ] 🚀 📥 Starting data loading process
+[ 2026-05-13 20:48:47,927 ] [ INFO ] [ load_data.py:18 ] 🚀 ✅ LoadData class initialized
+[ 2026-05-13 20:48:47,927 ] [ INFO ] [ load_data.py:50 ] 🚀 📥 Fetching data from table: emails
+[ 2026-05-13 20:48:47,927 ] [ INFO ] [ load_data.py:26 ] 🚀 🔌 Creating PostgreSQL connection
+[ 2026-05-13 20:48:47,945 ] [ INFO ] [ load_data.py:32 ] 🚀 ✅ PostgreSQL connection established
+[ 2026-05-13 20:48:48,145 ] [ INFO ] [ load_data.py:60 ] 🚀 ✅ Successfully fetched 33716 rows
+[ 2026-05-13 20:48:48,146 ] [ INFO ] [ load_data.py:64 ] 🚀 📊 Data shape: (33716, 5)
+[ 2026-05-13 20:48:48,146 ] [ INFO ] [ demo.py:39 ] 🚀 ✅ Data fetched successfully
+[ 2026-05-13 20:48:48,146 ] [ INFO ] [ demo.py:43 ] 🚀 🏁 Demo completed
