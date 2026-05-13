@@ -1,0 +1,1092 @@
+================================================================================
+       EMAIL SPAM DETECTION — COMPLETE END-TO-END MLOps PROJECT GUIDE
+       (Mac / macOS — All Commands for Terminal / zsh)
+================================================================================
+  Phases  : 8
+  Steps   : 44
+  Stack   : Python · PostgreSQL · MLflow · FastAPI · Docker · Kubernetes (EKS)
+            Prometheus · Grafana · Evidently AI · AWS · GitHub Actions
+================================================================================
+
+
+-------------------------------------- Project Setup --------------------------------------
+
+1. Create project template by executing template.py file
+
+2. Write the code on setup.py and pyproject.toml file to import local packages
+
+3. Create a virtual env, activate it and install the requirements from requirements.txt
+      conda create -n spamdetector python=3.10 -y
+      conda activate spamdetector
+      add required modules to requirements.txt
+      pip install -r requirements.txt
+
+4. Do a "pip list" on terminal to make sure you have local packages installed.
+
+   ✅ VERIFY — Project Setup OK?
+      python -c "import setuptools; print('setuptools OK')"
+      python -c "from src import *; print('local packages importable')"   # adjust to your package name
+      # Expected: no ImportError
+
+   📦 GIT — Commit project scaffold
+      git init
+      echo "artifacts/" >> .gitignore
+      echo "mlruns/" >> .gitignore
+      echo "logs/" >> .gitignore
+      echo "__pycache__/" >> .gitignore
+      echo "*.pyc" >> .gitignore
+      echo ".DS_Store" >> .gitignore
+      echo ".env" >> .gitignore
+      git add .
+      git commit -m "chore: initial project scaffold"
+      git push origin main
+
+
+-------------------------------------- PostgreSQL Setup --------------------------------------
+
+5. Install PostgreSQL on your Mac using Homebrew:
+      brew install postgresql@15
+      brew services start postgresql@15
+
+6. Verify PostgreSQL is running:
+      brew services list | grep postgresql
+
+7. Add PostgreSQL to your PATH (run once, then restart Terminal):
+      echo 'export PATH="/opt/homebrew/opt/postgresql@15/bin:$PATH"' >> ~/.zshrc
+      source ~/.zshrc
+
+8. Open PostgreSQL and create a new database:
+      psql postgres
+      -- Inside psql shell run:
+      CREATE USER spam_user WITH PASSWORD 'spam_pass';
+      CREATE DATABASE spam_db OWNER spam_user;
+      GRANT ALL PRIVILEGES ON DATABASE spam_db TO spam_user;
+      \q
+
+9. Verify that your database is successfully created:
+      psql -U spam_user -d spam_db -c "\dt"
+
+10. Add required libraries to requirements.txt:
+      pandas
+      sqlalchemy
+      psycopg2-binary
+      ipykernel
+      nltk
+      scikit-learn
+      mlflow
+      fastapi
+      uvicorn[standard]
+      pydantic
+      jinja2
+      python-multipart
+      boto3
+      joblib
+      evidently
+      prometheus-fastapi-instrumentator
+      prometheus-client
+      pytest
+
+      pip install -r requirements.txt
+
+11. Download required NLTK data (run once):
+      python -c "import nltk; nltk.download('stopwords'); nltk.download('punkt')"
+
+12. Create a folder named notebook.
+    Add your spam dataset (spam.csv with columns: label, message) inside the notebook folder.
+    >> Recommended dataset: UCI SMS Spam Collection or Kaggle Email Spam dataset
+
+13. Create a Jupyter notebook file: notebooks/postgres_demo.ipynb
+    Select your conda environment as the kernel.
+    Import required libraries (pandas, sqlalchemy).
+    Read your dataset into a pandas DataFrame and push to PostgreSQL:
+
+      import pandas as pd
+      from sqlalchemy import create_engine
+      import os
+
+      engine = create_engine(os.environ["POSTGRES_URL"])
+      df = pd.read_csv("notebook/spam.csv", encoding="latin-1")
+      df = df[["v1","v2"]].rename(columns={"v1":"label","v2":"message"})
+      df["label"] = df["label"].map({"ham": 0, "spam": 1})
+      df.to_sql("emails", engine, if_exists="replace", index=False)
+      print(f"Loaded {len(df)} rows")
+
+    PostgreSQL will automatically create the table and store your data.
+    Open PostgreSQL and verify your inserted table:
+      psql -U spam_user -d spam_db -c "SELECT label, COUNT(*) FROM emails GROUP BY label;"
+
+   ✅ VERIFY — PostgreSQL & Data OK?
+      # Should show two rows: label 0 (ham count) and label 1 (spam count)
+      psql -U spam_user -d spam_db -c "SELECT label, COUNT(*) FROM emails GROUP BY label;"
+      # Quick Python check:
+      python -c "
+      import os, pandas as pd
+      from sqlalchemy import create_engine
+      engine = create_engine(os.environ['POSTGRES_URL'])
+      df = pd.read_sql('SELECT COUNT(*) as total FROM emails', engine)
+      print('Total rows in DB:', df['total'][0])
+      assert df['total'][0] > 1000, 'Too few rows — check CSV load!'
+      print('DB check passed ✅')
+      "
+
+   📦 GIT — Commit PostgreSQL setup & notebook
+      git add notebooks/ config/ requirements.txt
+      git commit -m "feat: postgres setup and data ingestion notebook"
+      git push origin main
+
+
+-------------------------------------- Logging, Exception & Notebooks --------------------------------------
+
+14. Write the logger file (src/utils/logger.py) and test it on demo.py
+      >> Use Python's logging module with both file handler (logs/ folder) and console handler.
+      >> Run demo.py — confirm logs appear in terminal AND in logs/ folder.
+
+   ✅ VERIFY — Logger OK?
+      python demo.py
+      ls logs/                          # log file should appear
+      cat logs/*.log | head -20         # confirm log lines are present
+
+15. Write the exception file (src/utils/exception.py) and test it on demo.py
+      >> Custom exception should capture: file name, line number, and error message.
+      >> Run demo.py — confirm traceback is clean and informative.
+
+   ✅ VERIFY — Exception OK?
+      python demo.py                    # should print file name + line number in error
+      # Expected output format: [ERROR] [demo.py:line X] Your error message
+
+16. EDA and Feature Engineering notebooks added.
+      notebooks/01_eda.ipynb
+         >> Check class balance (spam vs ham count)
+         >> Message length distribution for spam vs ham
+         >> Most common words in spam emails
+         >> Null/missing value check
+
+      notebooks/02_feature_engineering.ipynb
+         >> Lowercase conversion
+         >> Remove punctuation, HTML tags, special characters
+         >> Stopword removal using NLTK
+         >> Stemming using PorterStemmer
+         >> TF-IDF vectorization test (try max_features = 3000 to 10000)
+         >> Document findings — these drive the transformation pipeline
+
+   📦 GIT — Commit utils and notebooks
+      git add src/utils/ notebooks/ demo.py logs/.gitkeep
+      git commit -m "feat: add logger, custom exception, EDA and feature engineering notebooks"
+      git push origin main
+
+
+-------------------------------------- Data Ingestion --------------------------------------
+
+17. Before we work on "Data Ingestion" component >>
+    Declare variables within constants/__init__.py >>
+    Add code to configuration/postgres_db_connection.py (define func for PostgreSQL connection) >>
+    Inside "data_access" folder add code to email_data.py — use postgres_db_connection.py
+    to connect with DB, fetch data using pd.read_sql() and return as DataFrame >>
+    Add code to entity/config_entity.py till DataIngestionConfig class >>
+    Add code to entity/artifact_entity.py till DataIngestionArtifact class >>
+    Add code to components/data_ingestion.py >>
+    Add code to training_pipeline.py >>
+    Run demo.py (set PostgreSQL connection URL first — see below)
+
+    To setup the connection URL on Mac, open Terminal and run:
+
+    *** For zsh / bash (Mac Terminal) ***
+    set:   export POSTGRES_URL="postgresql+psycopg2://spam_user:spam_pass@localhost:5432/spam_db"
+    check: echo $POSTGRES_URL
+
+    To make it permanent, add to ~/.zshrc:
+           echo 'export POSTGRES_URL="postgresql+psycopg2://spam_user:spam_pass@localhost:5432/spam_db"' >> ~/.zshrc
+           source ~/.zshrc
+
+    Also add "artifacts/" and "mlruns/" to .gitignore file
+
+   ✅ VERIFY — Data Ingestion OK?
+      python demo.py                    # run training pipeline up to data ingestion
+      ls artifacts/data_ingestion/      # should contain train.csv and test.csv
+      python -c "
+      import pandas as pd
+      train = pd.read_csv('artifacts/data_ingestion/train.csv')
+      test  = pd.read_csv('artifacts/data_ingestion/test.csv')
+      print('Train shape:', train.shape)
+      print('Test shape :', test.shape)
+      assert 'message' in train.columns and 'label' in train.columns, 'Missing columns!'
+      assert len(train) > 0 and len(test) > 0, 'Empty split!'
+      print('Data Ingestion check passed ✅')
+      "
+
+   📦 GIT — Commit data ingestion component
+      git add src/components/data_ingestion.py \
+              src/configuration/ \
+              src/data_access/ \
+              src/entity/ \
+              src/pipeline/training_pipeline.py \
+              constants/ \
+              demo.py
+      git commit -m "feat: data ingestion component — fetch from postgres, train/test split"
+      git push origin main
+
+
+-------------------------------------- Data Validation, Transformation & Model Trainer --------------------------------------
+
+18. Complete the work on utils/main_utils.py and config/schema.yaml
+    (Add full info about the email dataset for the data validation step)
+
+    config/schema.yaml should contain:
+      columns:
+        message: str
+        label: int
+      label_values: [0, 1]
+      required_columns: ["message", "label"]
+      min_rows: 1000
+
+19. Now work on the "Data Validation" component the way we did in step 17 for Data Ingestion.
+    (Check schema, nulls, duplicates, label values — write a report to artifacts/data_validation/)
+
+   ✅ VERIFY — Data Validation OK?
+      python demo.py
+      ls artifacts/data_validation/          # should contain validation_report.json or similar
+      python -c "
+      import json
+      report = json.load(open('artifacts/data_validation/report.json'))
+      print('Validation status:', report.get('validation_status'))
+      assert report.get('validation_status') == True, 'Validation FAILED — check schema!'
+      print('Data Validation check passed ✅')
+      "
+
+   📦 GIT — Commit data validation component
+      git add src/components/data_validation.py \
+              src/utils/main_utils.py \
+              config/schema.yaml \
+              src/entity/
+      git commit -m "feat: data validation component — schema, null, duplicate checks"
+      git push origin main
+
+20. Now work on the "Data Transformation" component the way we did in the above step.
+    Add estimator.py to entity/ folder.
+    The transformation pipeline should be:
+      Step 1 — SpamTextPreprocessor (custom sklearn transformer):
+                 lowercase >> remove HTML tags >> remove punctuation >>
+                 NLTK stopword removal >> PorterStemmer stemming
+      Step 2 — TfidfVectorizer(max_features=5000, ngram_range=(1,2))
+    Save the fitted pipeline as preprocessor.pkl using joblib.
+
+   ✅ VERIFY — Data Transformation OK?
+      python demo.py
+      ls artifacts/data_transformation/       # preprocessor.pkl should be here
+      python -c "
+      import joblib, numpy as np
+      pipe = joblib.load('artifacts/data_transformation/preprocessor.pkl')
+      sample = ['Congratulations! Free iPhone click now', 'Hi mom, see you at dinner']
+      out = pipe.transform(sample)
+      print('Transformed shape:', out.shape)
+      assert out.shape[0] == 2, 'Expected 2 rows'
+      assert out.shape[1] <= 5000, 'Feature count exceeds max_features'
+      print('Data Transformation check passed ✅')
+      "
+
+   📦 GIT — Commit data transformation component
+      git add src/components/data_transformation.py \
+              src/entity/estimator.py
+      git commit -m "feat: data transformation — text preprocessing pipeline + TF-IDF"
+      git push origin main
+
+21. Now work on the "Model Trainer" component the way we did in the above step.
+    Add model class to estimator.py in entity/ folder.
+    Train these candidate models and pick the best F1 score:
+      >> MultinomialNB()           — fast baseline, works well with TF-IDF
+      >> LogisticRegression()      — strong and interpretable
+      >> RandomForestClassifier()  — good with engineered features
+    Log all metrics to MLflow:
+      mlflow.log_metric("f1_score", ...)
+      mlflow.log_metric("precision", ...)
+      mlflow.log_metric("recall", ...)
+    Start MLflow UI to inspect runs (open a new Terminal tab):
+      mlflow ui --port 5000
+      Open: http://localhost:5000
+    Save best model as model.pkl using joblib.
+
+   ✅ VERIFY — Model Trainer OK?
+      python demo.py
+      ls artifacts/model_trainer/              # model.pkl should be here
+      python -c "
+      import joblib, numpy as np
+      model = joblib.load('artifacts/model_trainer/model.pkl')
+      pipe  = joblib.load('artifacts/data_transformation/preprocessor.pkl')
+      sample = ['Win a free prize now!', 'Meeting tomorrow at 10am']
+      X = pipe.transform(sample)
+      preds = model.predict(X)
+      proba = model.predict_proba(X)
+      print('Predictions :', preds)
+      print('Probabilities:', proba)
+      assert len(preds) == 2, 'Expected 2 predictions'
+      assert all(p in [0,1] for p in preds), 'Labels must be 0 or 1'
+      print('Model Trainer check passed ✅')
+      "
+      # Also check MLflow UI for logged metrics:
+      mlflow ui --port 5000    # open http://localhost:5000 and check runs
+
+   📦 GIT — Commit model trainer component
+      git add src/components/model_trainer.py \
+              src/entity/estimator.py
+      git commit -m "feat: model trainer — NB/LR/RF candidates, best model saved, metrics in MLflow"
+      git push origin main
+
+22. Before moving to Model Evaluation, some AWS setup is needed:
+      * Install AWS CLI on Mac:
+           brew install awscli
+           aws --version
+      * Login to AWS console.
+      * Keep region set as: us-east-1
+      * Go to IAM >> Create new user (name: spam-proj-user)
+      * Attach policy >> AdministratorAccess >> Create user
+      * Go to user >> Security Credentials >> Access Keys >> Create access key
+      * Select CLI >> agree >> next >> Create Access Key >> download CSV file
+      * Set env variables using values from the CSV file:
+
+      ====================================================================================
+         >> Set env var from Mac Terminal (zsh/bash): <<
+         export AWS_ACCESS_KEY_ID="your_key_here"
+         export AWS_SECRET_ACCESS_KEY="your_secret_here"
+
+         >> Check env var: <<
+         echo $AWS_ACCESS_KEY_ID
+         echo $AWS_SECRET_ACCESS_KEY
+
+         >> To make permanent, add both export lines to ~/.zshrc then run: <<
+         source ~/.zshrc
+      ====================================================================================
+
+      * Add access key, secret key, region to constants/__init__.py
+      * Add code to src/configuration/aws_connection.py (to work with AWS S3 service)
+      * Ensure these values are in constants/__init__.py:
+            MODEL_EVALUATION_CHANGED_THRESHOLD_SCORE: float = 0.02
+            MODEL_BUCKET_NAME = "my-spam-model-bucket"
+            MODEL_PUSHER_S3_KEY = "model-registry"
+      * Go to S3 >> Create bucket >> Region: us-east-1 >> General purpose >>
+        Bucket Name: "my-spam-model-bucket" >> uncheck "Block all public access" >> acknowledge >>
+        Hit Create Bucket
+      * Inside "src/aws_storage" add code to pull and push model from S3 bucket.
+      * Inside "entity/" add s3_estimator.py with functions to pull/push model from S3.
+
+   ✅ VERIFY — AWS Setup OK?
+      aws sts get-caller-identity          # confirms credentials are valid
+      aws s3 ls s3://my-spam-model-bucket/ # bucket should be accessible (empty is fine)
+      python -c "
+      import boto3
+      s3 = boto3.client('s3', region_name='us-east-1')
+      buckets = [b['Name'] for b in s3.list_buckets()['Buckets']]
+      assert 'my-spam-model-bucket' in buckets, 'Bucket not found!'
+      print('AWS S3 connection check passed ✅')
+      "
+
+   📦 GIT — Commit AWS config (NO secrets!)
+      # Make sure .gitignore has: *.env, secret.yaml, any file with actual keys
+      git add src/configuration/aws_connection.py \
+              src/aws_storage/ \
+              src/entity/s3_estimator.py \
+              constants/
+      git commit -m "feat: AWS S3 connection, s3_estimator for model push/pull"
+      git push origin main
+
+23. Now work on the "Model Evaluation" and "Model Pusher" components.
+      >> Model Evaluation: compare new model F1 vs current production model in S3.
+         Only accept new model if improvement > 0.02 threshold.
+      >> Model Pusher: if model is accepted, push to S3 under model-registry/ key.
+
+   ✅ VERIFY — Model Evaluation & Pusher OK?
+      python demo.py
+      # After first run there's no model in S3, so new model should auto-accept
+      aws s3 ls s3://my-spam-model-bucket/model-registry/   # model.pkl should appear
+      python -c "
+      import boto3
+      s3 = boto3.client('s3', region_name='us-east-1')
+      objs = s3.list_objects_v2(Bucket='my-spam-model-bucket', Prefix='model-registry/')
+      keys = [o['Key'] for o in objs.get('Contents', [])]
+      print('S3 model files:', keys)
+      assert len(keys) > 0, 'No model found in S3!'
+      print('Model Pusher check passed ✅')
+      "
+
+   📦 GIT — Commit model evaluation & pusher
+      git add src/components/model_evaluation.py \
+              src/components/model_pusher.py
+      git commit -m "feat: model evaluation (F1 threshold 0.02) + model pusher to S3"
+      git push origin main
+
+
+-------------------------------------- Prediction Pipeline & App --------------------------------------
+
+24. Create the code for "Prediction Pipeline" in src/pipeline/prediction_pipeline.py
+      >> On startup: download preprocessor.pkl + model.pkl from S3 to local cache.
+      >> predict(email_text) function:
+           1. Pass text through preprocessor pipeline (clean + TF-IDF transform)
+           2. Run model.predict() and model.predict_proba()
+           3. Return: {"label": "spam"/"ham", "confidence": float}
+
+   ✅ VERIFY — Prediction Pipeline OK?
+      python -c "
+      from src.pipeline.prediction_pipeline import PredictionPipeline
+      pipe = PredictionPipeline()
+      result = pipe.predict('Congratulations! You won a free iPhone. Click now!')
+      print('Result:', result)
+      assert result['label'] in ['spam', 'ham'], 'label must be spam or ham'
+      assert 0.0 <= result['confidence'] <= 1.0, 'confidence must be 0-1'
+      print('Prediction Pipeline check passed ✅')
+      "
+
+   📦 GIT — Commit prediction pipeline
+      git add src/pipeline/prediction_pipeline.py
+      git commit -m "feat: prediction pipeline — loads model from S3, returns label + confidence"
+      git push origin main
+
+25. Setup your serving/api/app.py using FastAPI:
+      >> POST /predict   — accepts email text, returns spam/ham label + confidence
+      >> GET  /training  — triggers the full training pipeline
+      >> GET  /health    — returns model status
+      >> GET  /metrics   — Prometheus metrics endpoint (auto-added in step 35)
+
+    Run locally to test:
+      uvicorn serving.api.app:app --host 0.0.0.0 --port 8000 --reload
+      Open: http://localhost:8000
+
+    Test the predict endpoint from Mac Terminal:
+      curl -X POST http://localhost:8000/predict \
+        -H "Content-Type: application/json" \
+        -d '{"message": "Congratulations! You won a free iPhone. Click now!"}'
+
+   ✅ VERIFY — FastAPI OK?
+      # Start server in background first, then run checks:
+      uvicorn serving.api.app:app --host 0.0.0.0 --port 8000 &
+      sleep 3
+
+      # Health check
+      curl -s http://localhost:8000/health
+      # Expected: {"status": "ok", ...}
+
+      # Spam prediction check
+      curl -s -X POST http://localhost:8000/predict \
+        -H "Content-Type: application/json" \
+        -d '{"message": "Free prize! Click now!"}' | python -m json.tool
+      # Expected: {"label": "spam", "confidence": ...}
+
+      # Ham prediction check
+      curl -s -X POST http://localhost:8000/predict \
+        -H "Content-Type: application/json" \
+        -d '{"message": "Hey, are we still on for lunch?"}' | python -m json.tool
+      # Expected: {"label": "ham", "confidence": ...}
+
+      # Stop background server
+      kill %1
+
+   📦 GIT — Commit FastAPI app
+      git add serving/ templates/ static/
+      git commit -m "feat: FastAPI app — /predict, /health, /training endpoints"
+      git push origin main
+
+26. Add "static/" and "templates/" directories to the project for the web UI (Jinja2).
+
+   📦 GIT — Commit web UI templates
+      git add templates/ static/
+      git commit -m "feat: Jinja2 web UI templates and static assets"
+      git push origin main
+
+
+-------------------------------------- Docker & Kubernetes Deployment --------------------------------------
+
+27. Install Docker Desktop for Mac:
+      Download from: https://www.docker.com/products/docker-desktop/
+      Open .dmg >> drag to Applications >> launch and wait for "Docker is running"
+      docker --version   # verify
+
+28. Setup Dockerfile and .dockerignore file.
+    Create infra/docker/Dockerfile.serve:
+      FROM python:3.10-slim
+      WORKDIR /app
+      COPY requirements.txt .
+      RUN pip install --no-cache-dir -r requirements.txt
+      COPY . .
+      RUN pip install -e .
+      EXPOSE 8000
+      CMD ["uvicorn", "serving.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+
+    Create .dockerignore:
+      data/raw/
+      mlruns/
+      *.env
+      __pycache__/
+      .git
+      *.pyc
+      .DS_Store
+
+    Build and test Docker image locally:
+      docker build -f infra/docker/Dockerfile.serve -t spam-detector:latest .
+      docker run -p 8000:8000 \
+        -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+        -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
+        -e POSTGRES_URL=$POSTGRES_URL \
+        spam-detector:latest
+      # Test: http://localhost:8000/health
+
+   ✅ VERIFY — Docker OK?
+      # Run container in detached mode, then test
+      docker run -d -p 8000:8000 --name spam-test \
+        -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+        -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
+        -e POSTGRES_URL=$POSTGRES_URL \
+        spam-detector:latest
+      sleep 10   # wait for startup
+
+      curl -s http://localhost:8000/health
+      # Expected: {"status": "ok"}
+
+      curl -s -X POST http://localhost:8000/predict \
+        -H "Content-Type: application/json" \
+        -d '{"message": "Win a lottery prize!"}' | python -m json.tool
+
+      docker logs spam-test            # check for any errors
+      docker stop spam-test && docker rm spam-test
+      echo "Docker check passed ✅"
+
+   📦 GIT — Commit Docker config
+      git add infra/docker/Dockerfile.serve .dockerignore
+      git commit -m "feat: Dockerfile for serving container"
+      git push origin main
+
+29. Write Kubernetes manifests inside infra/kubernetes/ folder:
+
+    >> infra/kubernetes/namespace.yaml
+         kind: Namespace
+         name: spam-mlops
+
+    >> infra/kubernetes/deployment.yaml
+         kind: Deployment, namespace: spam-mlops
+         replicas: 2
+         image: <ECR_URI>:latest
+         resource limits: CPU 500m, memory 512Mi
+         livenessProbe:  GET /health, initialDelaySeconds: 30
+         readinessProbe: GET /health, initialDelaySeconds: 10
+
+    >> infra/kubernetes/service.yaml
+         kind: Service
+         type: LoadBalancer
+         port: 8000, targetPort: 8000
+
+    >> infra/kubernetes/hpa.yaml
+         kind: HorizontalPodAutoscaler
+         minReplicas: 2, maxReplicas: 8
+         trigger: CPU utilization > 70%
+
+   ✅ VERIFY — Kubernetes manifests OK?
+      # Validate YAML syntax before applying
+      kubectl apply --dry-run=client -f infra/kubernetes/namespace.yaml
+      kubectl apply --dry-run=client -f infra/kubernetes/deployment.yaml
+      kubectl apply --dry-run=client -f infra/kubernetes/service.yaml
+      kubectl apply --dry-run=client -f infra/kubernetes/hpa.yaml
+      echo "All manifests syntax-valid ✅"
+
+   📦 GIT — Commit Kubernetes manifests
+      git add infra/kubernetes/
+      git commit -m "feat: Kubernetes manifests — deployment, service, HPA, namespace"
+      git push origin main
+
+30. Install eksctl and kubectl on Mac:
+      brew tap weaveworks/tap
+      brew install weaveworks/tap/eksctl
+      brew install kubectl
+      eksctl version
+      kubectl version --client
+
+31. Create ECR repository to store Docker image:
+      AWS console >> ECR >> Region: us-east-1 >> Create Repository >>
+      Repo name: spam-detector >> Create >> copy and keep the URI
+
+    Authenticate, tag and push image to ECR:
+      aws ecr get-login-password --region us-east-1 | \
+        docker login --username AWS --password-stdin <ECR_URI>
+
+      docker tag spam-detector:latest <ECR_URI>:latest
+      docker push <ECR_URI>:latest
+
+   ✅ VERIFY — ECR push OK?
+      aws ecr describe-images --repository-name spam-detector --region us-east-1
+      # Should show at least one image with "latest" tag
+
+32. Create EKS cluster (takes ~15 minutes):
+      eksctl create cluster \
+        --name spam-cluster \
+        --region us-east-1 \
+        --nodegroup-name standard \
+        --node-type t3.medium \
+        --nodes 2
+
+    Update kubeconfig and deploy all manifests:
+      aws eks update-kubeconfig --name spam-cluster --region us-east-1
+      kubectl apply -f infra/kubernetes/
+      kubectl get pods -n spam-mlops
+      kubectl logs -f deploy/spam-detector -n spam-mlops
+
+   ✅ VERIFY — EKS deployment OK?
+      kubectl get pods -n spam-mlops
+      # All pods should show STATUS = Running
+
+      kubectl get svc -n spam-mlops
+      # Copy EXTERNAL-IP from LoadBalancer service
+
+      # Wait ~2 minutes for LoadBalancer IP to be assigned, then:
+      EXTERNAL_IP=$(kubectl get svc spam-detector-service -n spam-mlops \
+        -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+      curl -s http://$EXTERNAL_IP:8000/health
+      # Expected: {"status": "ok"}
+      echo "EKS deployment check passed ✅"
+
+33. Setup Ingress, ConfigMap and Secrets:
+    Install NGINX Ingress Controller:
+      kubectl apply -f \
+        https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.9.4/deploy/static/provider/aws/deploy.yaml
+
+    >> infra/kubernetes/ingress.yaml
+         Route /predict  → spam-detector service port 8000
+         Route /training → spam-detector service port 8000
+
+    >> infra/kubernetes/configmap.yaml
+         Non-sensitive values: MODEL_BUCKET_NAME, AWS_DEFAULT_REGION
+
+    >> infra/kubernetes/secret.yaml
+         Base64-encode secrets first:
+           echo -n "your_value" | base64
+         Add: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, POSTGRES_URL
+
+    *** WARNING: Never commit secret.yaml to Git!
+        Use AWS Secrets Manager in production. ***
+
+   ✅ VERIFY — Ingress & Config OK?
+      kubectl get ingress -n spam-mlops
+      kubectl get configmap -n spam-mlops
+      kubectl get secret -n spam-mlops
+      # Verify pods are using ConfigMap values:
+      kubectl exec -it deploy/spam-detector -n spam-mlops -- env | grep MODEL_BUCKET
+      echo "Ingress & ConfigMap check passed ✅"
+
+   📦 GIT — Commit infra additions (NO secret.yaml)
+      echo "infra/kubernetes/secret.yaml" >> .gitignore
+      git add infra/kubernetes/ingress.yaml \
+              infra/kubernetes/configmap.yaml
+      git commit -m "feat: ingress, configmap for K8s; secret.yaml gitignored"
+      git push origin main
+
+
+-------------------------------------- Prometheus & Grafana Monitoring --------------------------------------
+
+34. Install Helm on Mac (needed to deploy Prometheus stack):
+      brew install helm
+      helm version
+
+35. Instrument FastAPI app with Prometheus metrics.
+    Add to serving/api/app.py:
+
+      from prometheus_fastapi_instrumentator import Instrumentator
+      from prometheus_client import Histogram, Counter, Gauge
+
+      Instrumentator().instrument(app).expose(app)
+
+      prediction_latency = Histogram(
+          "spam_prediction_latency_seconds",
+          "Time taken to classify one email"
+      )
+      spam_predictions_total = Counter(
+          "spam_predictions_total",
+          "Total predictions made",
+          ["label"]    # label = 'spam' or 'ham'
+      )
+      model_confidence = Gauge(
+          "spam_model_confidence",
+          "Confidence score of last prediction"
+      )
+
+    Wrap predict endpoint with metrics:
+      @app.post("/predict")
+      async def predict(request: EmailRequest):
+          with prediction_latency.time():
+              result = prediction_pipeline.predict(request.message)
+          spam_predictions_total.labels(label=result["label"]).inc()
+          model_confidence.set(result["confidence"])
+          return result
+
+    Test locally:
+      curl http://localhost:8000/metrics | grep spam
+
+   ✅ VERIFY — Prometheus metrics OK?
+      uvicorn serving.api.app:app --host 0.0.0.0 --port 8000 &
+      sleep 3
+      # Make a prediction to generate metrics
+      curl -s -X POST http://localhost:8000/predict \
+        -H "Content-Type: application/json" \
+        -d '{"message": "Urgent: claim your reward now!"}'
+      # Check metrics are exposed
+      curl -s http://localhost:8000/metrics | grep spam
+      # Expected: lines starting with spam_prediction_latency_seconds, spam_predictions_total, spam_model_confidence
+      kill %1
+      echo "Prometheus metrics check passed ✅"
+
+   📦 GIT — Commit Prometheus instrumentation
+      git add serving/api/app.py
+      git commit -m "feat: Prometheus metrics — latency histogram, prediction counter, confidence gauge"
+      git push origin main
+
+36. Deploy Prometheus to Kubernetes via Helm:
+    Add Helm repo:
+      helm repo add prometheus-community \
+        https://prometheus-community.github.io/helm-charts
+      helm repo update
+
+    Create infra/kubernetes/monitoring/prometheus-values.yaml
+    Add scrape config targeting your FastAPI /metrics endpoint:
+      additionalScrapeConfigs:
+        - job_name: 'spam-detector'
+          static_configs:
+            - targets: ['spam-detector-service.spam-mlops.svc.cluster.local:8000']
+
+    Install kube-prometheus-stack (includes Prometheus + Grafana + Alertmanager):
+      helm install kube-prom prometheus-community/kube-prometheus-stack \
+        -n monitoring --create-namespace \
+        -f infra/kubernetes/monitoring/prometheus-values.yaml
+
+    Create ServiceMonitor so Prometheus auto-discovers FastAPI pods:
+    >> infra/kubernetes/monitoring/servicemonitor.yaml
+         kind: ServiceMonitor, namespace: monitoring
+         selector matchLabels: app=spam-detector
+
+    Verify everything is running:
+      kubectl get pods -n monitoring
+      kubectl get servicemonitors -n spam-mlops
+
+   ✅ VERIFY — Prometheus stack OK?
+      kubectl get pods -n monitoring
+      # All pods should be Running or Completed
+
+      # Port-forward Prometheus UI to verify it's scraping spam-detector
+      kubectl port-forward svc/kube-prom-kube-prometheus-prometheus 9090:9090 -n monitoring &
+      sleep 5
+      curl -s "http://localhost:9090/api/v1/targets" | python -m json.tool | grep spam-detector
+      kill %1
+      # Expected: spam-detector job appears in targets list
+      echo "Prometheus stack check passed ✅"
+
+   📦 GIT — Commit Prometheus config
+      git add infra/kubernetes/monitoring/
+      git commit -m "feat: Prometheus + Grafana deployment via Helm, ServiceMonitor for spam-detector"
+      git push origin main
+
+37. Access Grafana dashboard:
+      kubectl port-forward svc/kube-prom-grafana 3000:80 -n monitoring
+      Open: http://localhost:3000
+      Default login — Username: admin  /  Password: prom-operator
+
+    Import pre-built dashboards (Grafana UI >> Import >> enter Dashboard ID):
+      Dashboard ID 11074  — FastAPI request metrics
+      Dashboard ID 6417   — Kubernetes cluster overview
+      Dashboard ID 1860   — Node exporter (CPU, memory, disk)
+
+    Create a custom "Spam Detector" dashboard with these panels:
+      >> Spam vs Ham prediction rate (req/sec by label)
+      >> Average model confidence over time
+      >> p95 prediction latency (target: under 200ms)
+      >> Error rate (5xx responses)
+      >> Pod restart count
+      >> Total emails classified today
+
+    Setup Grafana Alert rules:
+      >> Alert if error rate > 1%
+      >> Alert if p95 latency > 500ms
+      >> Alert if pod restarts > 3 in 5 minutes
+      >> Alert if spam detection rate drops below 80% (indicates model drift)
+
+   ✅ VERIFY — Grafana OK?
+      # Port-forward and check Grafana API health
+      kubectl port-forward svc/kube-prom-grafana 3000:80 -n monitoring &
+      sleep 5
+      curl -s -u admin:prom-operator http://localhost:3000/api/health | python -m json.tool
+      # Expected: {"commit": "...", "database": "ok", "version": "..."}
+      kill %1
+      echo "Grafana check passed ✅"
+
+
+-------------------------------------- Data Drift & Model Performance Monitoring --------------------------------------
+
+38. Add Evidently AI for data drift monitoring.
+    Create monitoring/data_drift.py:
+
+      from evidently.metrics import DataDriftPreset
+      from evidently.report import Report
+      import pandas as pd
+
+      train_df = pd.read_csv("artifacts/data_ingestion/train.csv")
+      live_df  = pd.read_csv("data/live_emails.csv")   # collected from API logs
+
+      report = Report(metrics=[DataDriftPreset()])
+      report.run(reference_data=train_df[["message"]],
+                 current_data=live_df[["message"]])
+      report.save_html("monitoring/drift_report.html")
+
+      open monitoring/drift_report.html   # opens in Mac default browser
+
+39. Create monitoring/model_performance.py:
+      >> Collect labeled samples from production (spam flagged by users)
+      >> Calculate weekly F1, precision, recall
+      >> Compare to baseline stored in S3
+      >> Log alert if F1 drops more than 5% from baseline
+
+40. Export drift score as Prometheus gauge (add to monitoring/data_drift.py):
+      from prometheus_client import Gauge
+      drift_score = Gauge(
+          'email_data_drift_score',
+          'PSI drift score for email features',
+          ['feature']
+      )
+      # Set alert in Grafana: fire when drift_score > 0.2
+
+   ✅ VERIFY — Drift Monitoring OK?
+      python monitoring/data_drift.py
+      ls monitoring/drift_report.html          # report should be generated
+      open monitoring/drift_report.html        # visually inspect in browser
+      python -c "
+      import os
+      assert os.path.exists('monitoring/drift_report.html'), 'Drift report not found!'
+      size = os.path.getsize('monitoring/drift_report.html')
+      assert size > 1000, 'Drift report looks empty (< 1KB)!'
+      print('Drift report generated and non-empty ✅')
+      "
+
+41. Schedule drift report as a Kubernetes CronJob (runs every Monday 8am):
+    Create infra/kubernetes/monitoring/drift-cronjob.yaml:
+      kind: CronJob
+      schedule: "0 8 * * 1"
+      command: python monitoring/data_drift.py
+
+   ✅ VERIFY — CronJob OK?
+      kubectl apply --dry-run=client -f infra/kubernetes/monitoring/drift-cronjob.yaml
+      kubectl apply -f infra/kubernetes/monitoring/drift-cronjob.yaml
+      kubectl get cronjobs -n spam-mlops
+      # Expected: drift-report CronJob listed with schedule "0 8 * * 1"
+      echo "CronJob check passed ✅"
+
+   📦 GIT — Commit monitoring code
+      git add monitoring/ infra/kubernetes/monitoring/
+      git commit -m "feat: Evidently drift monitoring, model performance tracker, drift CronJob"
+      git push origin main
+
+
+-------------------------------------- CI/CD Process --------------------------------------
+
+42. Getting started with CI/CD:
+      * Setup .github/workflows/ directory
+      * Add ci.yml (runs on every Pull Request):
+           - Lint with flake8
+           - Run pytest tests/
+           - Build Docker image (verify no errors)
+      * Add cd.yml (runs on push to main):
+           - Push Docker image to ECR
+           - kubectl rollout restart deploy/spam-detector -n spam-mlops
+
+      * Create EC2 Ubuntu server for self-hosted runner:
+           AWS console >> EC2 >> Launch Instance
+           Name:           spam-mlops-machine
+           Image:          Ubuntu Server 24.04 LTS (free tier eligible)
+           Instance type:  t2.medium (~chargeable)
+           Key pair:       Create new (name: spam-key) >> download .pem file to Mac
+           Network:        Allow HTTP and HTTPS traffic
+           Storage:        30 GB
+           Launch >> Go to instance >> click "Connect" >> EC2 Instance Connect >> Connect
+
+      * SSH into EC2 from Mac Terminal:
+           chmod 400 ~/Downloads/spam-key.pem
+           ssh -i ~/Downloads/spam-key.pem ubuntu@<EC2_PUBLIC_IP>
+
+   ✅ VERIFY — CI/CD Workflows OK?
+      # Validate YAML syntax of workflow files
+      python -c "
+      import yaml, os
+      for f in ['.github/workflows/ci.yml', '.github/workflows/cd.yml']:
+          with open(f) as fh:
+              yaml.safe_load(fh)
+          print(f'{f} — YAML valid ✅')
+      "
+      # Confirm expected jobs are present
+      grep -E "jobs:|lint|test|docker|deploy" .github/workflows/ci.yml
+      grep -E "jobs:|push|rollout" .github/workflows/cd.yml
+
+   📦 GIT — Commit CI/CD workflows
+      git add .github/workflows/ci.yml \
+              .github/workflows/cd.yml
+      git commit -m "feat: GitHub Actions CI (lint+test+build) and CD (ECR push + K8s rollout)"
+      git push origin main
+
+43. Open EC2 and install Docker on the EC2 machine:
+      ## Optional (recommended)
+      sudo apt-get update -y
+      sudo apt-get upgrade -y
+      ## Required (Docker is not on EC2 by default — check with: docker --version)
+      curl -fsSL https://get.docker.com -o get-docker.sh
+      sudo sh get-docker.sh
+      sudo usermod -aG docker ubuntu
+      newgrp docker
+      docker --version   # verify
+
+    Connect GitHub with EC2 (Self-hosted Runner):
+      * GitHub >> Repo >> Settings >> Actions >> Runners >> New self-hosted runner
+        >> Select OS: Linux
+      * Run all "Download" commands on EC2 terminal step by step
+      * Run first "Configure" command:
+           >> hit Enter for runner group
+           >> runner name: self-hosted
+           >> hit Enter to skip labels
+           >> hit Enter for default work folder
+      * Run second "Configure" command: ./run.sh
+      * Go back to GitHub >> Runners >> confirm state shows "Idle"
+      * NOTE: If you do Ctrl+C on EC2, runner stops. Restart with: ./run.sh
+      * TIP (Mac users): use tmux on EC2 to keep runner alive:
+           sudo apt install tmux -y
+           tmux new -s runner
+           ./run.sh
+           Press Ctrl+B then D to detach — runner keeps running in background!
+
+    Setup GitHub Secrets:
+      GitHub project >> Settings >> Secrets and Variables >> Actions >> New Repository Secret
+      Add the following:
+           AWS_ACCESS_KEY_ID      = <your key>
+           AWS_SECRET_ACCESS_KEY  = <your secret>
+           AWS_DEFAULT_REGION     = us-east-1
+           ECR_REPO               = <your ECR URI>
+           POSTGRES_URL           = postgresql+psycopg2://spam_user:spam_pass@<host>:5432/spam_db
+
+   ✅ VERIFY — Self-Hosted Runner OK?
+      # On EC2 terminal, while runner is active:
+      ./run.sh &
+      # On GitHub: Repo >> Settings >> Actions >> Runners
+      # Status should show "Idle" (green dot)
+      # Trigger a test by pushing a small change:
+      echo "# runner test" >> README.md
+      git add README.md
+      git commit -m "test: verify self-hosted runner is active"
+      git push origin main
+      # Watch GitHub >> Actions tab — CI should trigger and show self-hosted runner executing
+
+44. CI/CD pipeline will be triggered at next commit and push:
+      git add .
+      git commit -m "Deploy spam detector"
+      git push origin main
+      >> Watch it run: GitHub >> Actions tab
+
+    Activate port 8000 on EC2 instance:
+      Go to instance >> Security tab >> click Security Groups link >>
+      Edit Inbound Rules >> Add Rule:
+           Type:        Custom TCP
+           Port range:  8000
+           Source:      0.0.0.0/0
+      Save rules
+
+    Paste EC2 public IP in browser with port 8000 — app is live:
+      http://<EC2_PUBLIC_IP>:8000
+
+    Trigger model retraining on /training route:
+      http://<EC2_PUBLIC_IP>:8000/training
+
+   ✅ VERIFY — Full Pipeline Live?
+      # Replace <EC2_PUBLIC_IP> with your actual IP
+      curl -s http://<EC2_PUBLIC_IP>:8000/health
+      # Expected: {"status": "ok"}
+
+      curl -s -X POST http://<EC2_PUBLIC_IP>:8000/predict \
+        -H "Content-Type: application/json" \
+        -d '{"message": "You have been selected for a cash prize!"}'
+      # Expected: {"label": "spam", "confidence": ...}
+
+      curl -s http://<EC2_PUBLIC_IP>:8000/metrics | grep spam
+      # Expected: Prometheus metric lines for spam_predictions_total etc.
+      echo "Full live deployment verified ✅"
+
+    *** After every git push to main, the pipeline automatically:
+        1. Lints and runs tests (CI)
+        2. Builds new Docker image and pushes to ECR
+        3. Restarts Kubernetes deployment (zero-downtime rolling update)
+        4. Retrains model if /training is called
+        5. Evaluates new model vs production model in S3
+        6. Pushes better model to S3 if F1 improves > 0.02
+        7. Prometheus scrapes /metrics every 15 seconds
+        8. Grafana dashboards update in real-time
+        9. Evidently drift report runs every Monday automatically ***
+
+
+================================================================================
+                 GIT WORKFLOW SUMMARY — ALL COMMITS IN ONE PLACE
+================================================================================
+
+  Step  4  — chore: initial project scaffold
+  Step 13  — feat: postgres setup and data ingestion notebook
+  Step 16  — feat: add logger, custom exception, EDA and feature engineering notebooks
+  Step 17  — feat: data ingestion component — fetch from postgres, train/test split
+  Step 19  — feat: data validation component — schema, null, duplicate checks
+  Step 20  — feat: data transformation — text preprocessing pipeline + TF-IDF
+  Step 21  — feat: model trainer — NB/LR/RF candidates, best model saved, metrics in MLflow
+  Step 22  — feat: AWS S3 connection, s3_estimator for model push/pull
+  Step 23  — feat: model evaluation (F1 threshold 0.02) + model pusher to S3
+  Step 24  — feat: prediction pipeline — loads model from S3, returns label + confidence
+  Step 25  — feat: FastAPI app — /predict, /health, /training endpoints
+  Step 26  — feat: Jinja2 web UI templates and static assets
+  Step 28  — feat: Dockerfile for serving container
+  Step 29  — feat: Kubernetes manifests — deployment, service, HPA, namespace
+  Step 33  — feat: ingress, configmap for K8s; secret.yaml gitignored
+  Step 35  — feat: Prometheus metrics — latency histogram, prediction counter, confidence gauge
+  Step 36  — feat: Prometheus + Grafana deployment via Helm, ServiceMonitor for spam-detector
+  Step 41  — feat: Evidently drift monitoring, model performance tracker, drift CronJob
+  Step 42  — feat: GitHub Actions CI (lint+test+build) and CD (ECR push + K8s rollout)
+  Step 43  — test: verify self-hosted runner is active
+  Step 44  — Deploy spam detector (final production push)
+
+
+================================================================================
+                  QUICK REFERENCE — MAC COMMANDS CHEAT SHEET
+================================================================================
+
+      conda activate spamdetector                                  # activate environment
+      uvicorn serving.api.app:app --reload                         # run API locally
+      mlflow ui --port 5000                                        # open MLflow dashboard
+      brew services list                                           # check PostgreSQL status
+      psql -U spam_user -d spam_db                                 # open database shell
+      docker ps                                                    # list running containers
+      docker build -f infra/docker/Dockerfile.serve -t spam-detector:latest .  # build image
+      kubectl get pods -n spam-mlops                               # check running pods
+      kubectl logs -f deploy/spam-detector -n spam-mlops           # tail pod logs
+      kubectl get pods -n monitoring                               # check monitoring pods
+      kubectl port-forward svc/kube-prom-grafana 3000:80 -n monitoring  # open Grafana
+      aws s3 ls s3://my-spam-model-bucket/                         # list S3 model files
+      ssh -i ~/Downloads/spam-key.pem ubuntu@<EC2_IP>             # SSH into EC2
+
+      # Quick verify commands
+      python -c "from src.pipeline.prediction_pipeline import PredictionPipeline; \
+                 p = PredictionPipeline(); print(p.predict('Free prize now!'))"
+      curl -s http://localhost:8000/health                          # API health check
+      curl -s http://localhost:8000/metrics | grep spam            # Prometheus metrics check
+      aws sts get-caller-identity                                   # AWS credentials check
+
+
+================================================================================
+                     COMPLETE STACK — TOOLS BY LAYER
+================================================================================
+
+      Text Preprocessing    : NLTK, scikit-learn (TfidfVectorizer, Pipeline)
+      ML Models             : MultinomialNB, LogisticRegression, RandomForest
+      Experiment Tracking   : MLflow
+      Data Storage          : PostgreSQL (dataset), AWS S3 (models)
+      API Serving           : FastAPI + Uvicorn
+      Containerization      : Docker
+      Orchestration         : Kubernetes (EKS) + Helm
+      Monitoring (Infra)    : Prometheus + Grafana (kube-prometheus-stack)
+      Monitoring (ML)       : Evidently AI (data drift + model performance)
+      CI/CD                 : GitHub Actions + self-hosted EC2 runner
+      Cloud                 : AWS (S3, ECR, EKS, EC2, IAM)
+      Package Manager (Mac) : Homebrew + conda + pip
+
+================================================================================
+                         END OF GUIDE — HAPPY BUILDING!
+================================================================================
