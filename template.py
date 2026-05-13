@@ -1,157 +1,143 @@
 import os
+import logging
 from pathlib import Path
 
-project_name = "src"
+logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(message)s")
+logger = logging.getLogger(__name__)
 
-list_of_files = [
+PROJECT_NAME = "src"
 
-    # ==============================
-    # Root Files
-    # ==============================
-    ".github/workflows/.gitkeep",
-    "requirements.txt",
-    "setup.py",
-    "pyproject.toml",
-    "README.md",
-    "LICENSE",
-    ".gitignore",
-    "demo.py",
+FILES = [
+    # ── Package roots ──────────────────────────────────────────────
+    f"{PROJECT_NAME}/__init__.py",
 
-    # ==============================
-    # Config
-    # ==============================
-    "config/schema.yaml",
-
-    # ==============================
-    # Constants
-    # ==============================
+    # ── Constants ──────────────────────────────────────────────────
     "constants/__init__.py",
 
-    # ==============================
-    # Main Package
-    # ==============================
-    f"{project_name}/__init__.py",
+    # ── Config ─────────────────────────────────────────────────────
+    "config/schema.yaml",
 
-    # ==============================
-    # Components
-    # ==============================
-    f"{project_name}/components/__init__.py",
-    f"{project_name}/components/data_ingestion.py",
-    f"{project_name}/components/data_validation.py",
-    f"{project_name}/components/data_transformation.py",
-    f"{project_name}/components/model_trainer.py",
-    f"{project_name}/components/model_evaluation.py",
-    f"{project_name}/components/model_pusher.py",
+    # ── Utils ──────────────────────────────────────────────────────
+    f"{PROJECT_NAME}/utils/__init__.py",
+    f"{PROJECT_NAME}/utils/logger.py",
+    f"{PROJECT_NAME}/utils/exception.py",
+    f"{PROJECT_NAME}/utils/main_utils.py",
 
-    # ==============================
-    # Pipeline
-    # ==============================
-    f"{project_name}/pipeline/__init__.py",
-    f"{project_name}/pipeline/training_pipeline.py",
-    f"{project_name}/pipeline/prediction_pipeline.py",
+    # ── Configuration (DB + AWS connections) ───────────────────────
+    f"{PROJECT_NAME}/configuration/__init__.py",
+    f"{PROJECT_NAME}/configuration/postgres_db_connection.py",
+    f"{PROJECT_NAME}/configuration/aws_connection.py",
 
-    # ==============================
-    # Entity
-    # ==============================
-    f"{project_name}/entity/__init__.py",
-    f"{project_name}/entity/config_entity.py",
-    f"{project_name}/entity/artifact_entity.py",
-    f"{project_name}/entity/estimator.py",
-    f"{project_name}/entity/s3_estimator.py",
+    # ── Data Access ────────────────────────────────────────────────
+    f"{PROJECT_NAME}/data_access/__init__.py",
+    f"{PROJECT_NAME}/data_access/email_data.py",
 
-    # ==============================
-    # Configuration
-    # ==============================
-    f"{project_name}/configuration/__init__.py",
-    f"{project_name}/configuration/postgres_db_connection.py",
-    f"{project_name}/configuration/aws_connection.py",
+    # ── Entity (config + artifact + estimator) ─────────────────────
+    f"{PROJECT_NAME}/entity/__init__.py",
+    f"{PROJECT_NAME}/entity/config_entity.py",
+    f"{PROJECT_NAME}/entity/artifact_entity.py",
+    f"{PROJECT_NAME}/entity/estimator.py",
+    f"{PROJECT_NAME}/entity/s3_estimator.py",
 
-    # ==============================
-    # Data Access
-    # ==============================
-    f"{project_name}/data_access/__init__.py",
-    f"{project_name}/data_access/email_data.py",
+    # ── Components ─────────────────────────────────────────────────
+    f"{PROJECT_NAME}/components/__init__.py",
+    f"{PROJECT_NAME}/components/data_ingestion.py",
+    f"{PROJECT_NAME}/components/data_validation.py",
+    f"{PROJECT_NAME}/components/data_transformation.py",
+    f"{PROJECT_NAME}/components/model_trainer.py",
+    f"{PROJECT_NAME}/components/model_evaluation.py",
+    f"{PROJECT_NAME}/components/model_pusher.py",
 
-    # ==============================
-    # AWS Storage
-    # ==============================
-    f"{project_name}/aws_storage/__init__.py",
-    f"{project_name}/aws_storage/s3_operations.py",
+    # ── Pipelines ──────────────────────────────────────────────────
+    f"{PROJECT_NAME}/pipeline/__init__.py",
+    f"{PROJECT_NAME}/pipeline/training_pipeline.py",
+    f"{PROJECT_NAME}/pipeline/prediction_pipeline.py",
 
-    # ==============================
-    # Utils
-    # ==============================
-    f"{project_name}/utils/__init__.py",
-    f"{project_name}/utils/logger.py",
-    f"{project_name}/utils/exception.py",
-    f"{project_name}/utils/main_utils.py",
+    # ── AWS Storage ────────────────────────────────────────────────
+    f"{PROJECT_NAME}/aws_storage/__init__.py",
+    f"{PROJECT_NAME}/aws_storage/s3_ops.py",
 
-    # ==============================
-    # Serving API
-    # ==============================
-    "serving/api/app.py",
+    # ── Serving / FastAPI ──────────────────────────────────────────
     "serving/__init__.py",
+    "serving/api/__init__.py",
+    "serving/api/app.py",
 
-    # ==============================
-    # Monitoring
-    # ==============================
+    # ── Web UI ─────────────────────────────────────────────────────
+    "templates/index.html",
+    "static/style.css",
+    "static/script.js",
+
+    # ── Monitoring ─────────────────────────────────────────────────
+    "monitoring/__init__.py",
     "monitoring/data_drift.py",
     "monitoring/model_performance.py",
 
-    # ==============================
-    # Infrastructure
-    # ==============================
+    # ── Infrastructure — Docker ────────────────────────────────────
     "infra/docker/Dockerfile.serve",
+    ".dockerignore",
+
+    # ── Infrastructure — Kubernetes ────────────────────────────────
     "infra/kubernetes/namespace.yaml",
     "infra/kubernetes/deployment.yaml",
     "infra/kubernetes/service.yaml",
     "infra/kubernetes/hpa.yaml",
     "infra/kubernetes/ingress.yaml",
     "infra/kubernetes/configmap.yaml",
-
-    # ==============================
-    # Monitoring Infra
-    # ==============================
     "infra/kubernetes/monitoring/prometheus-values.yaml",
     "infra/kubernetes/monitoring/servicemonitor.yaml",
     "infra/kubernetes/monitoring/drift-cronjob.yaml",
 
-    # ==============================
-    # Templates & Static
-    # ==============================
-    "templates/index.html",
-    "static/style.css",
+    # ── CI/CD ──────────────────────────────────────────────────────
+    ".github/workflows/ci.yml",
+    ".github/workflows/cd.yml",
 
-    # ==============================
-    # Notebooks
-    # ==============================
+    # ── Tests ──────────────────────────────────────────────────────
+    "tests/__init__.py",
+    "tests/test_prediction.py",
+
+    # ── Notebooks ──────────────────────────────────────────────────
     "notebooks/postgres_demo.ipynb",
     "notebooks/01_eda.ipynb",
     "notebooks/02_feature_engineering.ipynb",
 
-    # ==============================
-    # Tests
-    # ==============================
-    "tests/__init__.py",
+    # ── Root-level files ───────────────────────────────────────────
+    "setup.py",
+    "pyproject.toml",
+    "requirements.txt",
+    "demo.py",
+    ".gitignore",
+    "README.md",
 
-    # ==============================
-    # Logs & Artifacts
-    # ==============================
-    "logs/.gitkeep",
+    # ── Keep empty artifact / log folders in git ───────────────────
     "artifacts/.gitkeep",
+    "logs/.gitkeep",
+    "mlruns/.gitkeep",
+    "data/live_emails.csv",
 ]
 
-for filepath in list_of_files:
-    filepath = Path(filepath)
 
-    filedir, filename = os.path.split(filepath)
+def create_project():
+    for file_path_str in FILES:
+        file_path = Path(file_path_str)
+        directory = file_path.parent
 
-    if filedir != "":
-        os.makedirs(filedir, exist_ok=True)
+        # ── Create parent directory if needed ──────────────────────
+        if str(directory) != ".":
+            directory.mkdir(parents=True, exist_ok=True)
+            logger.info(f"📁 Directory ready : {directory}")
 
-    if (not os.path.exists(filepath)) or (os.path.getsize(filepath) == 0):
-        with open(filepath, "w") as f:
-            pass
+        # ── Create file only if it doesn't exist ───────────────────
+        if not file_path.exists():
+            file_path.touch()
+            logger.info(f"📄 File created    : {file_path}")
+        else:
+            logger.info(f"⏩ Already exists  : {file_path}")
 
-    else:
-        print(f"{filename} already exists")
+
+if __name__ == "__main__":
+    create_project()
+    logger.info("\n✅ Project scaffold created successfully!")
+    logger.info("   Next step → fill in setup.py and pyproject.toml, then run:")
+    logger.info("   conda create -n spamdetector python=3.10 -y")
+    logger.info("   conda activate spamdetector")
+    logger.info("   pip install -r requirements.txt")
