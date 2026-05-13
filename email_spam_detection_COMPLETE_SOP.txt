@@ -31,7 +31,7 @@
    📦 GIT — Commit project scaffold
       git init
       echo "artifacts/" >> .gitignore
-      echo "mlruns/" >> .gitignore
+      echo "mlruns/" >> .gitignore 
       echo "logs/" >> .gitignore
       echo "__pycache__/" >> .gitignore
       echo "*.pyc" >> .gitignore

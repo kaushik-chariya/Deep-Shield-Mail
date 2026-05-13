@@ -1,0 +1,4 @@
+[ 2026-05-13 18:13:09,017 ] [ INFO ] [ logger.py:73 ] 🚀 ✅ Logger configured successfully
+[ 2026-05-13 18:13:09,017 ] [ INFO ] [ demo.py:5 ] 🚀 🚀 Demo started
+[ 2026-05-13 18:13:09,018 ] [ INFO ] [ demo.py:9 ] 🚀 📂 Starting CSV insertion process
+[ 2026-05-13 18:13:09,497 ] [ INFO ] [ demo.py:15 ] 🚀 ✅ CSV inserted successfully
