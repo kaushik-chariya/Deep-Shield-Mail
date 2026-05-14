@@ -46,7 +46,7 @@ def get_logger(name=__name__):
             "[ %(asctime)s ] "
             "[ %(levelname)s ] "
             "[ %(filename)s:%(lineno)d ] "
-            "🚀 %(message)s"
+            "🚀 %(message)s ✅"
         )
 
         # File Handler
@@ -70,7 +70,7 @@ def get_logger(name=__name__):
         logger.addHandler(file_handler)
         logger.addHandler(console_handler)
 
-        logger.info("✅ Logger configured successfully")
+        logger.info("Logger configured successfully...🏆")
 
     return logger
 

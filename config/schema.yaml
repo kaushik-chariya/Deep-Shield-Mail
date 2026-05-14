@@ -1,0 +1,9 @@
+columns:
+  text: category
+  target: int
+
+numerical_columns:
+  - target
+
+categorical_columns:
+  - text

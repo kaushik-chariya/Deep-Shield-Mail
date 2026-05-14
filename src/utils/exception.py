@@ -1,7 +1,7 @@
-from src.utils.logger import logger
-
 import sys
 import logging
+from src.utils.logger import logger
+
 
 def error_message_detail(error: Exception, error_detail: sys) -> str:
     """
@@ -19,7 +19,7 @@ def error_message_detail(error: Exception, error_detail: sys) -> str:
 
     # Create a formatted error message string with file name, line number, and the actual error
     line_number = exc_tb.tb_lineno
-    error_message = f"Error occurred in python script: [{file_name}] at line number [{line_number}]: {str(error)}"
+    error_message = f"❗️❗️❗️Error occurred in python script: [{file_name}] at line number [{line_number}]: {str(error)} ❗️❗️❗️"
     
     # Log the error for better tracking
     logging.error(error_message)
