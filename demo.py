@@ -23,7 +23,7 @@ if __name__ == "__main__":
         email_obj = EmailData()
 
         email_obj.insert_csv_to_postgres(
-            "data/raw/archive/enron_spam_data.csv"
+            "data/raw/archive/spam_assassin.csv"
         )
 
         logger.info(

@@ -31,25 +31,18 @@ class EmailData:
 
             logger.info("✅ Cursor created")
 
-            # Check existing data
-            cur.execute("SELECT COUNT(*) FROM emails")
+            # Delete old data
+            logger.warning(
+                "🗑️ Deleting old data from emails table"
+            )
 
-            count = cur.fetchone()[0]
+            cur.execute(
+                "TRUNCATE TABLE emails RESTART IDENTITY;"
+            )
 
-            logger.info(f"📦 Existing rows in table: {count}")
+            conn.commit()
 
-            if count > 0:
-
-                logger.warning(
-                    "⚠️ Data already exists in table!"
-                )
-
-                cur.close()
-                conn.close()
-
-                logger.info("🔒 Database connection closed")
-
-                return
+            logger.info("✅ Old data deleted")
 
             logger.info("🚀 Starting data insertion process")
 
@@ -59,15 +52,13 @@ class EmailData:
                 cur.execute(
                     """
                     INSERT INTO emails
-                    (subject, message, label, email_date)
+                    (message, label)
 
-                    VALUES (%s, %s, %s, %s)
+                    VALUES (%s, %s)
                     """,
                     (
-                        row["Subject"],
-                        row["Message"],
-                        row["Spam/Ham"],
-                        row["Date"]
+                        row["text"],
+                        row["target"]
                     )
                 )
 

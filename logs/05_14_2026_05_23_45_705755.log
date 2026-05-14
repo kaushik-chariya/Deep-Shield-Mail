@@ -1,0 +1,24 @@
+[ 2026-05-14 05:23:45,706 ] [ INFO ] [ logger.py:73 ] 🚀 ✅ Logger configured successfully
+[ 2026-05-14 05:23:45,817 ] [ INFO ] [ demo.py:14 ] 🚀 🚀 Demo started
+[ 2026-05-14 05:23:45,817 ] [ INFO ] [ demo.py:19 ] 🚀 📂 Starting CSV insertion process
+[ 2026-05-14 05:23:45,817 ] [ INFO ] [ email_data.py:16 ] 🚀 📂 Reading CSV file: data/raw/archive/spam_assassin.csv
+[ 2026-05-14 05:23:45,981 ] [ INFO ] [ email_data.py:21 ] 🚀 ✅ CSV loaded successfully
+[ 2026-05-14 05:23:45,981 ] [ INFO ] [ email_data.py:22 ] 🚀 📊 Total rows found: 5796
+[ 2026-05-14 05:23:45,981 ] [ INFO ] [ postgres_db_connection.py:10 ] 🚀 🔌 Connecting to PostgreSQL database
+[ 2026-05-14 05:23:46,276 ] [ INFO ] [ postgres_db_connection.py:21 ] 🚀 ✅ PostgreSQL connection established
+[ 2026-05-14 05:23:46,276 ] [ INFO ] [ email_data.py:27 ] 🚀 ✅ PostgreSQL connection established
+[ 2026-05-14 05:23:46,276 ] [ INFO ] [ email_data.py:32 ] 🚀 ✅ Cursor created
+[ 2026-05-14 05:23:46,276 ] [ INFO ] [ email_data.py:34 ] 🚀 🚀 Starting data insertion process
+[ 2026-05-14 05:23:46,322 ] [ INFO ] [ email_data.py:55 ] 🚀 📥 Inserted 0 rows
+[ 2026-05-14 05:23:47,240 ] [ INFO ] [ email_data.py:62 ] 🚀 ✅ Data inserted successfully into PostgreSQL
+[ 2026-05-14 05:23:47,241 ] [ INFO ] [ email_data.py:70 ] 🚀 🔒 Database connection closed
+[ 2026-05-14 05:23:47,242 ] [ INFO ] [ demo.py:29 ] 🚀 ✅ CSV insertion process completed
+[ 2026-05-14 05:23:47,242 ] [ INFO ] [ demo.py:36 ] 🚀 📥 Starting data loading process
+[ 2026-05-14 05:23:47,242 ] [ INFO ] [ load_data.py:18 ] 🚀 ✅ LoadData class initialized
+[ 2026-05-14 05:23:47,242 ] [ INFO ] [ load_data.py:50 ] 🚀 📥 Fetching data from table: emails
+[ 2026-05-14 05:23:47,242 ] [ INFO ] [ load_data.py:26 ] 🚀 🔌 Creating PostgreSQL connection
+[ 2026-05-14 05:23:47,267 ] [ INFO ] [ load_data.py:32 ] 🚀 ✅ PostgreSQL connection established
+[ 2026-05-14 05:23:47,365 ] [ INFO ] [ load_data.py:60 ] 🚀 ✅ Successfully fetched 5796 rows
+[ 2026-05-14 05:23:47,365 ] [ INFO ] [ load_data.py:64 ] 🚀 📊 Data shape: (5796, 5)
+[ 2026-05-14 05:23:47,365 ] [ INFO ] [ demo.py:44 ] 🚀 ✅ Data fetched successfully | Shape: (5796, 5)
+[ 2026-05-14 05:23:47,365 ] [ INFO ] [ demo.py:48 ] 🚀 🏁 Demo completed
