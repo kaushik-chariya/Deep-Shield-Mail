@@ -1,5 +1,7 @@
 import pandas as pd
 
+from psycopg2.extras import execute_batch
+
 from src.configuration.postgres_db_connection import (
     get_postgres_connection
 )
@@ -11,81 +13,69 @@ class EmailData:
 
     def insert_csv_to_postgres(self, csv_path):
 
+        conn = None
+        cur = None
+
         try:
 
             logger.info(f"📂 Reading CSV file: {csv_path}")
 
-            # Read CSV
-            df = pd.read_csv(csv_path)
+            df = pd.read_csv(
+                csv_path,
+                encoding="utf-8"
+            )
 
-            logger.info(f"✅ CSV loaded successfully")
-            logger.info(f"📊 Total rows found: {len(df)}")
+            df = df.fillna("")
 
-            # PostgreSQL connection
+            logger.info(f"✅ CSV loaded")
+            logger.info(f"📊 Total rows: {len(df)}")
+
             conn = get_postgres_connection()
 
-            logger.info("✅ PostgreSQL connection established")
-
-            # Cursor
             cur = conn.cursor()
 
-            logger.info("✅ Cursor created")
-
-            # Delete old data
-            logger.warning(
-                "🗑️ Deleting old data from emails table"
-            )
+            logger.info("✅ PostgreSQL connected")
 
             cur.execute(
                 "TRUNCATE TABLE emails RESTART IDENTITY;"
             )
 
-            conn.commit()
+            logger.info("🗑️ Old data removed")
 
-            logger.info("✅ Old data deleted")
-
-            logger.info("🚀 Starting data insertion process")
-
-            # Insert data row by row
-            for index, row in df.iterrows():
-
-                cur.execute(
-                    """
-                    INSERT INTO emails
-                    (message, label)
-
-                    VALUES (%s, %s)
-                    """,
-                    (
-                        row["text"],
-                        row["target"]
-                    )
+            data = list(
+                zip(
+                    df["text"],
+                    df["target"]
                 )
-
-                # Progress log every 10000 rows
-                if index % 10000 == 0:
-
-                    logger.info(
-                        f"📥 Inserted {index} rows"
-                    )
-
-            # Save changes
-            conn.commit()
-
-            logger.info(
-                "✅ Data inserted successfully into PostgreSQL"
             )
 
-            # Close connection
-            cur.close()
-            conn.close()
+            execute_batch(
+                cur,
+                """
+                INSERT INTO emails
+                (texts, label)
 
-            logger.info("🔒 Database connection closed")
+                VALUES (%s, %s)
+                """,
+                data
+            )
+
+            conn.commit()
+
+            logger.info("✅ Data inserted successfully")
 
         except Exception as e:
 
-            logger.error(
-                f"❌ Error occurred: {e}"
-            )
+            logger.error(f"❌ Error: {e}")
 
             raise e
+
+        finally:
+
+            if cur:
+                cur.close()
+
+            if conn:
+                conn.close()
+
+            logger.info("🔒 Connection closed")
