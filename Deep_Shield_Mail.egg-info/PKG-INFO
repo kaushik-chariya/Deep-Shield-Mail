@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: Deep-Shield-Mail
+Version: 0.0.1
+Author: Kaushik-chariya
+Author-email: chariyakaushik1435@gmail.com
+License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: license-file

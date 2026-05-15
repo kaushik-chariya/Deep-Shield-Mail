@@ -1,0 +1,11 @@
+https://dagshub.com/kaushik-chariya/Deep-Shield-Mail.mlflow
+
+
+
+import dagshub
+dagshub.init(repo_owner='kaushik-chariya', repo_name='Deep-Shield-Mail', mlflow=True)
+
+import mlflow
+with mlflow.start_run():
+  mlflow.log_param('parameter name', 'value')
+  mlflow.log_metric('metric name', 1)
