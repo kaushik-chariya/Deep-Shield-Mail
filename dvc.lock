@@ -1,0 +1,167 @@
+schema: '2.0'
+stages:
+  data_ingestion:
+    cmd: python -m src.components.data_ingestion
+    deps:
+    - path: src/components/data_ingestion.py
+      hash: md5
+      md5: 0a599d332f73c9c02023c2b1c1db0f9c
+      size: 10880
+    - path: src/entity/artifact_entity.py
+      hash: md5
+      md5: bf18dd6cf224e0b94138f491c2d39267
+      size: 643
+    - path: src/entity/config_entity.py
+      hash: md5
+      md5: 29b603ff4cb879d37cecec9b1f0944da
+      size: 3693
+    params:
+      params.yaml:
+        data_ingestion.postgres:
+          table: emails
+          query: SELECT * FROM emails
+        data_ingestion.s3:
+          bucket_name: email-bucket-mlops
+          file_key: spam_assassin.csv
+        data_ingestion.source: both
+        data_ingestion.test_size: 0.2
+    outs:
+    - path: artifact/data_ingestion
+      hash: md5
+      md5: c86e0b20929baf7f078177e18bb9cb26.dir
+      size: 44739454
+      nfiles: 3
+  data_validation:
+    cmd: python -m src.components.data_validation
+    deps:
+    - path: artifact/data_ingestion
+      hash: md5
+      md5: c86e0b20929baf7f078177e18bb9cb26.dir
+      size: 44739454
+      nfiles: 3
+    - path: config/schema.yaml
+      hash: md5
+      md5: 33e9bc07502a6bd0ed3f6f97d138109d
+      size: 389
+    - path: src/components/data_validation.py
+      hash: md5
+      md5: 9d589d9fe147a9f7e8aa293896cb39d2
+      size: 7396
+    params:
+      params.yaml:
+        data_ingestion.source: both
+    outs:
+    - path: artifact/data_validation
+      hash: md5
+      md5: 68ef317897c155291e3ace4fd5441f27.dir
+      size: 52
+      nfiles: 1
+  data_transformation:
+    cmd: python -m src.components.data_transformation
+    deps:
+    - path: artifact/data_ingestion
+      hash: md5
+      md5: c86e0b20929baf7f078177e18bb9cb26.dir
+      size: 44739454
+      nfiles: 3
+    - path: artifact/data_validation
+      hash: md5
+      md5: 68ef317897c155291e3ace4fd5441f27.dir
+      size: 52
+      nfiles: 1
+    - path: src/components/data_transformation.py
+      hash: md5
+      md5: b5527bd0074bcda8b9da24044c23b491
+      size: 21047
+    params:
+      params.yaml:
+        data_transformation.vectorizer: TF-IDF
+    outs:
+    - path: artifact/data_transformation/transformed/test.npy
+      hash: md5
+      md5: 77736babbd07c5d47e3f0adb8615312e
+      size: 154553072
+    - path: artifact/data_transformation/transformed/train.npy
+      hash: md5
+      md5: ecb72c938c37ff406d8a19487b90eb7a
+      size: 600233888
+    - path: artifact/data_transformation/transformed_object/preprocessing.pkl
+      hash: md5
+      md5: 24e824d1f06fc1260672afc8f370bd20
+      size: 715422
+  model_trainer:
+    cmd: python -m src.components.model_trainer
+    deps:
+    - path: artifact/data_transformation/transformed/test.npy
+      hash: md5
+      md5: 77736babbd07c5d47e3f0adb8615312e
+      size: 154553072
+    - path: artifact/data_transformation/transformed/train.npy
+      hash: md5
+      md5: ecb72c938c37ff406d8a19487b90eb7a
+      size: 600233888
+    - path: src/components/model_trainer.py
+      hash: md5
+      md5: 1c3a32a8f1dda6c616343e7a7a078c4b
+      size: 3726
+    params:
+      params.yaml:
+        model_trainer.xgboost.colsample_bytree: 0.8
+        model_trainer.xgboost.eval_metric: logloss
+        model_trainer.xgboost.learning_rate: 0.1
+        model_trainer.xgboost.max_depth: 6
+        model_trainer.xgboost.n_estimators: 200
+        model_trainer.xgboost.random_state: 42
+        model_trainer.xgboost.subsample: 0.8
+    outs:
+    - path: artifact/model_trainer/trained_model/model.pkl
+      hash: md5
+      md5: 89d61985311f81d856c1c2ca0702b20c
+      size: 240611
+  model_evaluation:
+    cmd: python src/components/model_evaluation.py
+    deps:
+    - path: artifact/data_transformation/transformed/test.npy
+      hash: md5
+      md5: 77736babbd07c5d47e3f0adb8615312e
+      size: 154553072
+    - path: artifact/model_trainer/trained_model/model.pkl
+      hash: md5
+      md5: 89d61985311f81d856c1c2ca0702b20c
+      size: 240611
+    - path: src/components/model_evaluation.py
+      hash: md5
+      md5: f1ea7d089d78e042fb01101eaa87b00b
+      size: 6134
+    params:
+      params.yaml:
+        model_evaluation.experiment_name: Spam-Detection-XGBoost-v1
+        model_evaluation.model_name: Deep-Shield-Spam-Detector
+    outs:
+    - path: reports/experiment_info.json
+      hash: md5
+      md5: 24faa441626f0b8912a43d66db32c94d
+      size: 104
+    - path: reports/metrics.json
+      hash: md5
+      md5: ce7a922e36429850031add81a9b4ceaa
+      size: 140
+  model_pusher:
+    cmd: python src/components/model_pusher.py
+    deps:
+    - path: artifact/model_trainer/trained_model/model.pkl
+      hash: md5
+      md5: 89d61985311f81d856c1c2ca0702b20c
+      size: 240611
+    - path: reports/experiment_info.json
+      hash: md5
+      md5: 24faa441626f0b8912a43d66db32c94d
+      size: 104
+    - path: src/components/model_pusher.py
+      hash: md5
+      md5: 83b32721aa595b63a87a098509eb2149
+      size: 2621
+    params:
+      params.yaml:
+        model_evaluation.model_name: Deep-Shield-Spam-Detector
+        model_pusher.alias: staging

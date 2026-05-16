@@ -249,3 +249,17 @@ class DataValidation:
 
         except Exception as e:
             raise MyException(e, sys) from e
+
+if __name__ == "__main__":
+    from src.entity.config_entity import DataIngestionConfig, DataValidationConfig
+    from src.entity.artifact_entity import DataIngestionArtifact
+
+    ingestion_artifact = DataIngestionArtifact(
+        trained_file_path="artifact/data_ingestion/ingested/train.csv",
+        test_file_path="artifact/data_ingestion/ingested/test.csv"
+    )
+
+    config = DataValidationConfig()
+    obj = DataValidation(ingestion_artifact, config)
+    artifact = obj.initiate_data_validation()
+    print(artifact)

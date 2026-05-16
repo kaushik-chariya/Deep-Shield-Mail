@@ -95,3 +95,16 @@ class ModelTrainer:
         except Exception as e:
             logger.error(f"Model Trainer failed: {e}")
             raise MyException(e, sys)
+
+if __name__ == "__main__":
+    from src.entity.artifact_entity import DataTransformationArtifact
+
+    transformation_artifact = DataTransformationArtifact(
+        transformed_object_file_path="artifact/data_transformation/transformed_object/preprocessing.pkl",
+        transformed_train_file_path="artifact/data_transformation/transformed/train.npy",
+        transformed_test_file_path="artifact/data_transformation/transformed/test.npy"
+    )
+
+    obj = ModelTrainer(data_transformation_artifact=transformation_artifact, model_trainer_config=ModelTrainerConfig())
+    artifact = obj.initiate_model_trainer()
+    print(artifact)

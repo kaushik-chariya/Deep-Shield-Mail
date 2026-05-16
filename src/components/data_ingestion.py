@@ -149,7 +149,6 @@ class DataIngestion:
             # ── Step 2 → Drop internal columns ────────────────
             logger.info("[Step 2/4] Cleaning internal columns...")
 
-            # _source column added when source='both' (postgres + s3)
             if "_source" in dataframe.columns:
                 logger.info(
                     "[Step 2/4] Dropping '_source' column "
@@ -213,3 +212,49 @@ class DataIngestion:
                 exc_info=True
             )
             raise MyException(e, sys)
+
+
+# ═══════════════════════════════════════════════════════════════
+# MAIN — DVC ke liye entry point
+# ═══════════════════════════════════════════════════════════════
+if __name__ == "__main__":
+    from src.data_access.load_data import (
+        load_params,
+        load_data_from_postgres,
+        load_data_from_s3,
+        load_data_from_both,
+    )
+
+    # ── Params load karo ──────────────────────────────────────
+    params = load_params("params.yaml")
+    source = params["data_ingestion"]["source"]
+
+    logger.info("📦 Data source: %s", source)
+
+    # ── Source ke hisaab se data fetch karo ──────────────────
+    if source == "postgres":
+        df = load_data_from_postgres(params["data_ingestion"]["postgres"])
+
+    elif source == "s3":
+        df = load_data_from_s3(params["data_ingestion"]["s3"])
+
+    elif source == "both":
+        df = load_data_from_both(
+            params["data_ingestion"]["postgres"],
+            params["data_ingestion"]["s3"],
+        )
+
+    else:
+        raise ValueError(
+            f"Invalid source '{source}' in params.yaml — use postgres / s3 / both"
+        )
+
+    # ── Ingestion chalaao ─────────────────────────────────────
+    obj      = DataIngestion()
+    artifact = obj.initiate_data_ingestion(dataframe=df)
+
+    logger.info(
+        "✅ Done! train='%s', test='%s'",
+        artifact.trained_file_path,
+        artifact.test_file_path
+    )

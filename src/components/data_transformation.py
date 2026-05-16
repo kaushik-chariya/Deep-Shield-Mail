@@ -409,3 +409,23 @@ class DataTransformation:
         except Exception as e:
             logger.error("Data Transformation: FAILED — %s", str(e), exc_info=True)
             raise MyException(e, sys) from e
+
+if __name__ == "__main__":
+    from src.entity.config_entity import DataIngestionConfig, DataTransformationConfig, DataValidationConfig
+    from src.entity.artifact_entity import DataIngestionArtifact, DataValidationArtifact
+
+    ingestion_artifact = DataIngestionArtifact(
+        trained_file_path="artifact/data_ingestion/ingested/train.csv",
+        test_file_path="artifact/data_ingestion/ingested/test.csv"
+    )
+
+    validation_artifact = DataValidationArtifact(
+        validation_status=True,
+        message="",
+        validation_report_file_path="artifact/data_validation/report.yaml"
+    )
+
+    config = DataTransformationConfig()
+    obj = DataTransformation(data_ingestion_artifact=ingestion_artifact, data_validation_artifact=validation_artifact, data_transformation_config=config)
+    artifact = obj.initiate_data_transformation()
+    print(artifact)

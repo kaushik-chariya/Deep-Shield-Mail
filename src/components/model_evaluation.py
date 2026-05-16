@@ -125,9 +125,8 @@ class ModelEvaluation:
                     for k, v in clf.get_params().items():
                         mlflow.log_param(k, v)
 
-                mlflow.xgboost.log_model(
+                mlflow.xgboost.log_model(artifact_path="model",
                     xgb_model     = clf,
-                    name = "model"
                 )
                 logger.info("Model logged to MLflow under artifact_path='model'")
 
