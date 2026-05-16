@@ -4,6 +4,7 @@
 import numpy as np
 import pandas as pd
 pd.set_option('future.no_silent_downcasting', True)
+
 import os
 import concurrent.futures                          # ✅ run both sources in parallel
 from sklearn.model_selection import train_test_split
@@ -15,14 +16,14 @@ from src.configuration.aws_connection import s3_operations
 import psycopg2
 from sqlalchemy import create_engine 
 from dotenv import load_dotenv
+import os
+load_dotenv()
 
 
 
 # ─────────────────────────────────────────────
 # Load .env file
 # ─────────────────────────────────────────────
-load_dotenv()
-
 
 # ─────────────────────────────────────────────
 # Load Params from YAML

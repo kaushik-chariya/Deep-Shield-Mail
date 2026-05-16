@@ -1,6 +1,17 @@
 import os
 from datetime import date
 
+
+from dotenv import load_dotenv
+from pathlib import Path
+import os
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+env_path = BASE_DIR / ".env"
+
+load_dotenv(dotenv_path=env_path)
+
 # PostgreSQL connection
 POSTGRES_HOST = os.getenv("POSTGRES_HOST")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT")
@@ -64,12 +75,13 @@ MODEL_TRAINER_TRAINED_MODEL_NAME: str = "model.pkl"
 MODEL_TRAINER_EXPECTED_SCORE: float = 0.6
 MODEL_TRAINER_MODEL_CONFIG_FILE_PATH: str = os.path.join("config", "model.yaml")
 
-MODEL_TRAINER_N_ESTIMATORS: int = 200
-MODEL_TRAINER_MIN_SAMPLES_SPLIT: int = 7
-MODEL_TRAINER_MIN_SAMPLES_LEAF: int = 6
-MODEL_TRAINER_MAX_DEPTH: int = 10
-MODEL_TRAINER_CRITERION: str = "entropy"
-MODEL_TRAINER_RANDOM_STATE: int = 101
+
+MODEL_TRAINER_N_ESTIMATORS: int = 200       # ✅
+MODEL_TRAINER_MAX_DEPTH: int = 4            # ✅ (aapne 4 use kiya tha best params mein!)
+MODEL_TRAINER_RANDOM_STATE: int = 101       # ✅
+MODEL_TRAINER_LEARNING_RATE: float = 0.1   # ✅
+MODEL_TRAINER_SUBSAMPLE: float = 0.8       # ✅
+MODEL_TRAINER_COLSAMPLE_BYTREE: float = 0.8 # ✅
 
 
 """
@@ -83,3 +95,4 @@ MODEL_PUSHER_S3_KEY = "model-registry"
 
 APP_HOST = "0.0.0.0"
 APP_PORT = 8000
+

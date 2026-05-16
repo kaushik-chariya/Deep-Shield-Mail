@@ -2,3 +2,5 @@ logs/
 artifact/
 cred.txt/
 local_s3/
+.env/
+

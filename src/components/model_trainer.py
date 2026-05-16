@@ -1,114 +1,122 @@
+import os
 import sys
-from typing import Tuple
-
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
+import pickle
+from xgboost import XGBClassifier
+from sklearn.metrics import f1_score, precision_score, recall_score
 
+from src.utils.logger import logger
 from src.utils.exception import MyException
-from src.utils.logger import logging
-from src.utils.main_utils import load_numpy_array_data, load_object, save_object
 from src.entity.config_entity import ModelTrainerConfig
-from src.entity.artifact_entity import DataTransformationArtifact, ModelTrainerArtifact, ClassificationMetricArtifact
-from src.entity.estimator import MyModel
+from src.entity.artifact_entity import (
+    DataTransformationArtifact,
+    ModelTrainerArtifact,
+    ClassificationMetricArtifact
+)
+
 
 class ModelTrainer:
-    def __init__(self, data_transformation_artifact: DataTransformationArtifact,
-                 model_trainer_config: ModelTrainerConfig):
-        """
-        :param data_transformation_artifact: Output reference of data transformation artifact stage
-        :param model_trainer_config: Configuration for model training
-        """
-        self.data_transformation_artifact = data_transformation_artifact
-        self.model_trainer_config = model_trainer_config
 
-    def get_model_object_and_report(self, train: np.array, test: np.array) -> Tuple[object, object]:
-        """
-        Method Name :   get_model_object_and_report
-        Description :   This function trains a RandomForestClassifier with specified parameters
-        
-        Output      :   Returns metric artifact object and trained model object
-        On Failure  :   Write an exception log and then raise an exception
-        """
+    def __init__(
+        self,
+        model_trainer_config: ModelTrainerConfig,
+        data_transformation_artifact: DataTransformationArtifact
+    ):
         try:
-            logging.info("Training RandomForestClassifier with specified parameters")
+            self.config = model_trainer_config
+            self.data_transformation_artifact = data_transformation_artifact
+        except Exception as e:
+            raise MyException(e, sys)
 
-            # Splitting the train and test data into features and target variables
-            x_train, y_train, x_test, y_test = train[:, :-1], train[:, -1], test[:, :-1], test[:, -1]
-            logging.info("train-test split done.")
+    def train_model(self, X_train: np.ndarray, y_train: np.ndarray) -> XGBClassifier:
+        try:
+            clf = XGBClassifier(
+                n_estimators=self.config.n_estimators,
+                max_depth=self.config.max_depth,
+                learning_rate=self.config.learning_rate,
+                subsample=self.config.subsample,
+                colsample_bytree=self.config.colsample_bytree,
+                eval_metric='logloss',
+                random_state=self.config.random_state,
+                # use_label_encoder=False
+            )
+            clf.fit(X_train, y_train)
+            logger.info("XGBoost model training completed ✅")
+            return clf
+        except Exception as e:
+            raise MyException(e, sys)
 
-            # Initialize RandomForestClassifier with specified parameters
-            model = RandomForestClassifier(
-                n_estimators = self.model_trainer_config.n_estimators,
-                min_samples_split = self.model_trainer_config.min_samples_split,
-                min_samples_leaf = self.model_trainer_config.min_samples_leaf,
-                max_depth = self.model_trainer_config.max_depth,
-                criterion = self.model_trainer_config.criterion,
-                random_state = self.model_trainer_config.random_state
+    def get_model_object_and_report(
+        self,
+        train_arr: np.ndarray,
+        test_arr: np.ndarray
+    ):
+        try:
+            X_train, y_train = train_arr[:, :-1], train_arr[:, -1]
+            X_test,  y_test  = test_arr[:, :-1],  test_arr[:, -1]
+
+            model = self.train_model(X_train, y_train)
+            y_pred = model.predict(X_test)
+
+            metric_artifact = ClassificationMetricArtifact(
+                f1_score=f1_score(y_test, y_pred),
+                precision_score=precision_score(y_test, y_pred),
+                recall_score=recall_score(y_test, y_pred)
             )
 
-            # Fit the model
-            logging.info("Model training going on...")
-            model.fit(x_train, y_train)
-            logging.info("Model training done.")
-
-            # Predictions and evaluation metrics
-            y_pred = model.predict(x_test)
-            accuracy = accuracy_score(y_test, y_pred)
-            f1 = f1_score(y_test, y_pred)
-            precision = precision_score(y_test, y_pred)
-            recall = recall_score(y_test, y_pred)
-
-            # Creating metric artifact
-            metric_artifact = ClassificationMetricArtifact(f1_score=f1, precision_score=precision, recall_score=recall)
             return model, metric_artifact
-        
+
         except Exception as e:
-            raise MyException(e, sys) from e
+            raise MyException(e, sys)
 
     def initiate_model_trainer(self) -> ModelTrainerArtifact:
-        logging.info("Entered initiate_model_trainer method of ModelTrainer class")
-        """
-        Method Name :   initiate_model_trainer
-        Description :   This function initiates the model training steps
-        
-        Output      :   Returns model trainer artifact
-        On Failure  :   Write an exception log and then raise an exception
-        """
         try:
-            print("------------------------------------------------------------------------------------------------")
-            print("Starting Model Trainer Component")
-            # Load transformed train and test data
-            train_arr = load_numpy_array_data(file_path=self.data_transformation_artifact.transformed_train_file_path)
-            test_arr = load_numpy_array_data(file_path=self.data_transformation_artifact.transformed_test_file_path)
-            logging.info("train-test data loaded")
-            
-            # Train model and get metrics
-            trained_model, metric_artifact = self.get_model_object_and_report(train=train_arr, test=test_arr)
-            logging.info("Model object and artifact loaded.")
-            
-            # Load preprocessing object
-            preprocessing_obj = load_object(file_path=self.data_transformation_artifact.transformed_object_file_path)
-            logging.info("Preprocessing obj loaded.")
+            logger.info("=" * 60)
+            logger.info("Model Trainer: STARTED")
+            logger.info("=" * 60)
 
-            # Check if the model's accuracy meets the expected threshold
-            if accuracy_score(train_arr[:, -1], trained_model.predict(train_arr[:, :-1])) < self.model_trainer_config.expected_accuracy:
-                logging.info("No model found with score above the base score")
-                raise Exception("No model found with score above the base score")
-
-            # Save the final model object that includes both preprocessing and the trained model
-            logging.info("Saving new model as performace is better than previous one.")
-            my_model = MyModel(preprocessing_object=preprocessing_obj, trained_model_object=trained_model)
-            save_object(self.model_trainer_config.trained_model_file_path, my_model)
-            logging.info("Saved final model object that includes both preprocessing and the trained model")
-
-            # Create and return the ModelTrainerArtifact
-            model_trainer_artifact = ModelTrainerArtifact(
-                trained_model_file_path=self.model_trainer_config.trained_model_file_path,
-                metric_artifact=metric_artifact,
+            # Load .npy files
+            train_arr = np.load(
+                self.data_transformation_artifact.transformed_train_file_path
             )
-            logging.info(f"Model trainer artifact: {model_trainer_artifact}")
-            return model_trainer_artifact
-        
+            test_arr = np.load(
+                self.data_transformation_artifact.transformed_test_file_path
+            )
+
+            logger.info(f"Train shape: {train_arr.shape} | Test shape: {test_arr.shape}")
+
+            # Train + Metrics
+            model, metric_artifact = self.get_model_object_and_report(
+                train_arr, test_arr
+            )
+
+            logger.info(f"F1 Score       : {metric_artifact.f1_score:.4f}")
+            logger.info(f"Precision Score: {metric_artifact.precision_score:.4f}")
+            logger.info(f"Recall Score   : {metric_artifact.recall_score:.4f}")
+
+            # Expected score check
+            if metric_artifact.f1_score < self.config.expected_accuracy:
+                raise Exception(
+                    f"Model F1 {metric_artifact.f1_score:.4f} < "
+                    f"Expected {self.config.expected_accuracy} ❌"
+                )
+
+            # Save model
+            os.makedirs(
+                os.path.dirname(self.config.trained_model_file_path),
+                exist_ok=True
+            )
+            with open(self.config.trained_model_file_path, 'wb') as f:
+                pickle.dump(model, f)
+
+            logger.info(f"Model saved: {self.config.trained_model_file_path}")
+            logger.info("Model Trainer: COMPLETED ✅")
+
+            return ModelTrainerArtifact(
+                trained_model_file_path=self.config.trained_model_file_path,
+                metric_artifact=metric_artifact
+            )
+
         except Exception as e:
-            raise MyException(e, sys) from e
+            logger.error(f"Model Trainer failed: {e}")
+            raise MyException(e, sys)
