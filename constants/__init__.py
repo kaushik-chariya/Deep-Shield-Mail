@@ -96,3 +96,17 @@ MODEL_PUSHER_S3_KEY = "model-registry"
 APP_HOST = "0.0.0.0"
 APP_PORT = 8000
 
+
+# ── NAYA: params.yaml se MLflow/Model constants ──
+import yaml
+
+def read_params() -> dict:
+    params_path = os.path.join(os.getcwd(), "params.yaml")
+    with open(params_path, "r") as f:
+        return yaml.safe_load(f)
+
+params = read_params()
+
+MODEL_EVALUATION_EXPERIMENT_NAME = params['model_evaluation']['experiment_name']
+MODEL_EVALUATION_MODEL_NAME      = params['model_evaluation']['model_name']
+MODEL_PUSHER_ALIAS               = params['model_pusher']['alias']

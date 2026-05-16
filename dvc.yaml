@@ -1,0 +1,88 @@
+stages:
+
+  data_ingestion:
+    cmd: python -m src.components.data_ingestion
+    deps:
+      - src/components/data_ingestion.py
+      - src/entity/config_entity.py
+      - src/entity/artifact_entity.py
+    params:
+      - params.yaml:
+          - data_ingestion.test_size
+          - data_ingestion.source
+          - data_ingestion.postgres
+          - data_ingestion.s3
+    outs:
+      - artifact/data_ingestion  # ✅ Specific folder
+
+  data_validation:
+    cmd: python -m src.components.data_validation
+    deps:
+      - src/components/data_validation.py
+      - artifact/data_ingestion  # ✅ Pichle stage ka output
+      - config/schema.yaml
+    params:
+      - params.yaml:
+          - data_ingestion.source
+    outs:
+      - artifact/data_validation  # ✅ Specific folder
+
+  data_transformation:
+    cmd: python -m src.components.data_transformation
+    deps:
+      - src/components/data_transformation.py
+      - artifact/data_ingestion   # ✅ train.csv, test.csv
+      - artifact/data_validation  # ✅ report.yaml
+    params:
+      - params.yaml:
+          - data_transformation.vectorizer
+    outs:
+      - artifact/data_transformation/transformed/train.npy        # ✅ .npy files
+      - artifact/data_transformation/transformed/test.npy         # ✅ .npy files
+      - artifact/data_transformation/transformed_object/preprocessing.pkl  # ✅ pkl
+
+  model_trainer:
+    cmd: python -m src.components.model_trainer
+    deps:
+      - src/components/model_trainer.py
+      - artifact/data_transformation/transformed/train.npy  # ✅ Input
+      - artifact/data_transformation/transformed/test.npy   # ✅ Input
+    params:
+      - params.yaml:
+          - model_trainer.xgboost.n_estimators
+          - model_trainer.xgboost.max_depth
+          - model_trainer.xgboost.learning_rate
+          - model_trainer.xgboost.subsample
+          - model_trainer.xgboost.colsample_bytree
+          - model_trainer.xgboost.eval_metric
+          - model_trainer.xgboost.random_state
+    outs:
+      - artifact/model_trainer/trained_model/model.pkl  # ✅ model.pkl specifically
+
+  model_evaluation:
+    cmd: python src/components/model_evaluation.py
+    deps:
+      - src/components/model_evaluation.py
+      - artifact/model_trainer/trained_model/model.pkl  # ✅ model.pkl
+      - artifact/data_transformation/transformed/test.npy  # ✅ test data
+    params:
+      - params.yaml:
+          - model_evaluation.experiment_name
+          - model_evaluation.model_name
+    metrics:
+      - reports/metrics.json:
+          cache: false
+    outs:
+      - reports/experiment_info.json:
+          cache: false
+
+  model_pusher:
+    cmd: python src/components/model_pusher.py
+    deps:
+      - src/components/model_pusher.py
+      - reports/experiment_info.json
+      - artifact/model_trainer/trained_model/model.pkl  # ✅ model.pkl
+    params:
+      - params.yaml:
+          - model_pusher.alias
+          - model_evaluation.model_name
