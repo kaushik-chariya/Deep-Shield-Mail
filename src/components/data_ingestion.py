@@ -225,6 +225,7 @@ if __name__ == "__main__":
         load_data_from_both,
     )
 
+
     # ── Params load karo ──────────────────────────────────────
     params = load_params("params.yaml")
     source = params["data_ingestion"]["source"]

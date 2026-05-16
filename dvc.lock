@@ -5,8 +5,8 @@ stages:
     deps:
     - path: src/components/data_ingestion.py
       hash: md5
-      md5: 0a599d332f73c9c02023c2b1c1db0f9c
-      size: 10880
+      md5: ce2ab5181af5babf7918fcfc66a8bef5
+      size: 10881
     - path: src/entity/artifact_entity.py
       hash: md5
       md5: bf18dd6cf224e0b94138f491c2d39267
