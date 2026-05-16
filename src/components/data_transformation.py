@@ -7,6 +7,7 @@ import os
 import re
 import numpy as np
 import pandas as pd
+from src.utils.logger import logger
 
 from scipy.sparse import hstack, csr_matrix
 
@@ -15,7 +16,7 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.impute import SimpleImputer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.base import BaseEstimator, TransformerMixin
-
+from src.utils.logger import logger
 from constants import TARGET_COLUMN, SCHEMA_FILE_PATH
 
 from src.entity.config_entity import DataTransformationConfig
@@ -67,6 +68,15 @@ class EmailParser(BaseEstimator, TransformerMixin):
 
     @staticmethod
     def _extract_body(text: str) -> str:
+        import re
+
+        HEADER_KEYS_RE = re.compile(
+    r'\b(From|Return-Path|Delivered-To|Received|Message-Id|To|Subject|Date|'
+    r'MIME-Version|Content-Type|Content-Transfer-Encoding|Delivery-Date|'
+    r'Reply-To|Cc|Bcc|In-Reply-To|References|Importance|Thread-Index|'
+    r'Thread-Topic|Organization|X-[\w-]+):\s*',
+    re.IGNORECASE
+)
         matches    = list(HEADER_KEYS_RE.finditer(text))
         if not matches:
             return text
@@ -82,6 +92,7 @@ class EmailParser(BaseEstimator, TransformerMixin):
 
     @staticmethod
     def _get_field(pattern: str, text: str) -> str:
+        import re
         match = re.search(pattern, text, re.IGNORECASE)
         return match.group(1).strip() if match else ''
 
@@ -99,6 +110,9 @@ class EmailParser(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X, y=None) -> pd.DataFrame:
+        import pandas as pd
+        import numpy as np
+        from src.utils.logger import logger
         logger.info("EmailParser.transform: started — input size: %d emails", len(X))
         parsed = X.apply(self._parse_single)
         df     = pd.DataFrame(list(parsed))

@@ -1,15 +1,22 @@
 import os
 import sys
 import glob
-import pickle
+import dill as pickle
+import re
 import numpy as np
 import pandas as pd
+from src.utils.logger import logger
+
+
+
 
 from scipy.sparse import hstack, csr_matrix
 from constants import SCHEMA_FILE_PATH
 from src.utils.logger    import logger
 from src.utils.exception import MyException
 from src.utils.main_utils import read_yaml_file
+import re
+from src.components.data_transformation import EmailParser, EmailMetaFeatureExtractor, BodyFeatureExtractor
 
 # ── Same constants as data_transformation.py ─────────────────────────────────
 DEFAULT_NUM_FEATURES = [
@@ -107,11 +114,11 @@ class PredictionPipeline:
             dict with label and probability
         """
         try:
+            import pandas as pd
             logger.info("=" * 50)
             logger.info("Prediction: STARTED")
 
             # ── Step 1: Parse email ───────────────────────────
-            logger.info("[Step 1/5] Parsing email text")
             parser  = self.transformers["email_parser"]
             X       = parser.transform(pd.Series([email_text]))
 

@@ -71,8 +71,8 @@ stages:
       nfiles: 1
     - path: src/components/data_transformation.py
       hash: md5
-      md5: b5527bd0074bcda8b9da24044c23b491
-      size: 21047
+      md5: 76eda21c6b4014b5444fbe22f648984d
+      size: 21411
     params:
       params.yaml:
         data_transformation.vectorizer: TF-IDF
@@ -87,8 +87,8 @@ stages:
       size: 600233888
     - path: artifact/data_transformation/transformed_object/preprocessing.pkl
       hash: md5
-      md5: 24e824d1f06fc1260672afc8f370bd20
-      size: 715422
+      md5: c8cffbe1f2ba7df1b7b800d1a2ec64f4
+      size: 715749
   model_trainer:
     cmd: python -m src.components.model_trainer
     deps:
