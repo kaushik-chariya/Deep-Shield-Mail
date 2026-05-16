@@ -7,3 +7,27 @@ numerical_columns:
 
 categorical_columns:
   - text
+
+
+drop_columns:
+  - text
+  - from
+  - to
+  - date
+
+num_features:
+  - same_domain
+  - to_is_generic
+  - is_weekend
+  - has_link
+  - num_exclaim
+  - num_dollar
+  - caps_ratio
+  - num_question
+  - has_free
+  - has_win
+  - has_urgent
+  - body_len
+  - num_links
+  - num_digits
+  - is_odd_hour

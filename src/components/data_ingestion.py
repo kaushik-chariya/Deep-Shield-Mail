@@ -1,198 +1,215 @@
+# ═══════════════════════════════════════════════════════════════
+# Data Ingestion
+# ─ Accepts DataFrame from PostgreSQL / S3 / both
+# ─ Saves feature store CSV
+# ─ Performs train-test split
+# ─ Returns DataIngestionArtifact
+# ═══════════════════════════════════════════════════════════════
+
 import os
 import sys
 
 from pandas import DataFrame
 from sklearn.model_selection import train_test_split
 
-from src.entity.config_entity import DataIngestionConfig
+from src.entity.config_entity   import DataIngestionConfig
 from src.entity.artifact_entity import DataIngestionArtifact
+
 from src.utils.exception import MyException
-from src.utils.logger import logger
-from src.data_access.load_data import LoadData
+from src.utils.logger    import logger
 
 
 class DataIngestion:
+
     def __init__(
         self,
         data_ingestion_config: DataIngestionConfig = DataIngestionConfig()
     ):
-        """
-        :param data_ingestion_config: configuration for data ingestion
-        """
-
         try:
             self.data_ingestion_config = data_ingestion_config
+            logger.info(
+                "DataIngestion.__init__: config loaded — "
+                "split_ratio=%.2f, feature_store='%s'",
+                self.data_ingestion_config.train_test_split_ratio,
+                self.data_ingestion_config.feature_store_file_path
+            )
+        except Exception as e:
+            raise MyException(e, sys)
+
+    # ──────────────────────────────────────────────────────────
+    # Private — Train Test Split
+    # ──────────────────────────────────────────────────────────
+    def _split_data_as_train_test(self, dataframe: DataFrame) -> None:
+        """Split dataframe and save train/test CSVs."""
+        try:
+            logger.info(
+                "✂️  Performing train-test split — "
+                "ratio=%.2f, input shape=%s",
+                self.data_ingestion_config.train_test_split_ratio,
+                dataframe.shape
+            )
+
+            train_set, test_set = train_test_split(
+                dataframe,
+                test_size   = self.data_ingestion_config.train_test_split_ratio,
+                random_state= 42
+            )
+
+            logger.info(
+                "✅ Split done — train=%s, test=%s",
+                train_set.shape, test_set.shape
+            )
+
+            # ── Target distribution check ──────────────────────
+            if "target" in train_set.columns:
+                logger.info(
+                    "📊 Train target distribution : %s",
+                    train_set["target"].value_counts().to_dict()
+                )
+                logger.info(
+                    "📊 Test  target distribution : %s",
+                    test_set["target"].value_counts().to_dict()
+                )
+
+            # ── Save CSVs ──────────────────────────────────────
+            dir_path = os.path.dirname(
+                self.data_ingestion_config.training_file_path
+            )
+            os.makedirs(dir_path, exist_ok=True)
+
+            train_set.to_csv(
+                self.data_ingestion_config.training_file_path,
+                index=False, header=True
+            )
+            logger.info(
+                "💾 Train CSV saved → '%s'",
+                self.data_ingestion_config.training_file_path
+            )
+
+            test_set.to_csv(
+                self.data_ingestion_config.testing_file_path,
+                index=False, header=True
+            )
+            logger.info(
+                "💾 Test  CSV saved → '%s'",
+                self.data_ingestion_config.testing_file_path
+            )
 
         except Exception as e:
             raise MyException(e, sys)
 
-    def export_data_into_feature_store(self) -> DataFrame:
-        """
-        Method Name : export_data_into_feature_store
+    # ──────────────────────────────────────────────────────────
+    # Private — Basic Validation
+    # ──────────────────────────────────────────────────────────
+    def _validate_dataframe(self, dataframe: DataFrame) -> None:
+        """Basic checks before processing."""
+        if dataframe is None:
+            raise ValueError("Incoming DataFrame is None — check your data source")
 
-        Description :
-        This method exports data from PostgreSQL to csv file
+        if dataframe.empty:
+            raise ValueError("Incoming DataFrame is empty — check your data source")
 
-        Output :
-        Data is returned as artifact of data ingestion components
-
-        On Failure :
-        Write an exception log and then raise an exception
-        """
-
-        try:
-
-            logger.info("Exporting data from PostgreSQL")
-
-            my_data = LoadData()
-            
-
-            dataframe = my_data.fetch_and_save(
-                table_name=self.data_ingestion_config.table_name
+        if "target" not in dataframe.columns:
+            raise ValueError(
+                "Target column 'target' missing — "
+                f"available columns: {dataframe.columns.tolist()}"
             )
 
-            logger.info(f"Shape of dataframe: {dataframe.shape}")
+        logger.info(
+            "✅ DataFrame validation passed — shape=%s, nulls=%s",
+            dataframe.shape,
+            dataframe.isnull().sum().to_dict()
+        )
+
+    # ──────────────────────────────────────────────────────────
+    # Public — Main Entry Point
+    # ──────────────────────────────────────────────────────────
+    def initiate_data_ingestion(
+        self,
+        dataframe: DataFrame        # ← comes from PostgreSQL / S3 / both
+    ) -> DataIngestionArtifact:
+
+        try:
+            logger.info("=" * 60)
+            logger.info("Data Ingestion: STARTED")
+            logger.info("=" * 60)
+
+            # ── Step 1 → Validate ──────────────────────────────
+            logger.info("[Step 1/4] Validating incoming DataFrame...")
+            self._validate_dataframe(dataframe)
+            logger.info(
+                "[Step 1/4] Incoming shape   : %s",
+                dataframe.shape
+            )
+            logger.info(
+                "[Step 1/4] Incoming columns : %s",
+                dataframe.columns.tolist()
+            )
+
+            # ── Step 2 → Drop internal columns ────────────────
+            logger.info("[Step 2/4] Cleaning internal columns...")
+
+            # _source column added when source='both' (postgres + s3)
+            if "_source" in dataframe.columns:
+                logger.info(
+                    "[Step 2/4] Dropping '_source' column "
+                    "(added by load_data_from_both)"
+                )
+                dataframe = dataframe.drop(columns=["_source"])
+
+            logger.info(
+                "[Step 2/4] Final shape   : %s",
+                dataframe.shape
+            )
+            logger.info(
+                "[Step 2/4] Final columns : %s",
+                dataframe.columns.tolist()
+            )
+
+            # ── Step 3 → Save feature store ───────────────────
+            logger.info("[Step 3/4] Saving feature store CSV...")
 
             feature_store_file_path = (
                 self.data_ingestion_config.feature_store_file_path
             )
 
             dir_path = os.path.dirname(feature_store_file_path)
-
             os.makedirs(dir_path, exist_ok=True)
-
-            logger.info(
-                f"Saving exported data into feature store path: "
-                f"{feature_store_file_path}"
-            )
 
             dataframe.to_csv(
                 feature_store_file_path,
-                index=False,
-                header=True
+                index=False, header=True
             )
-
-            return dataframe
-
-        except Exception as e:
-            raise MyException(e, sys)
-
-    def split_data_as_train_test(
-        self,
-        dataframe: DataFrame
-    ) -> None:
-        """
-        Method Name : split_data_as_train_test
-
-        Description :
-        This method splits the dataframe into train and test set
-
-        Output :
-        Train and test csv files are created
-
-        On Failure :
-        Write an exception log and then raise an exception
-        """
-
-        logger.info(
-            "Entered split_data_as_train_test method "
-            "of DataIngestion class"
-        )
-
-        try:
-
-            train_set, test_set = train_test_split(
-                dataframe,
-                test_size=self.data_ingestion_config.train_test_split_ratio,
-                random_state=42
-            )
-
             logger.info(
-                "Performed train test split on dataframe"
+                "[Step 3/4] Feature store saved → 💾 '%s'",
+                feature_store_file_path
             )
 
-            dir_path = os.path.dirname(
-                self.data_ingestion_config.training_file_path
-            )
+            # ── Step 4 → Train-test split ──────────────────────
+            logger.info("[Step 4/4] Performing train-test split...")
+            self._split_data_as_train_test(dataframe)
+            logger.info("[Step 4/4] Train-test split complete ✔️")
 
-            os.makedirs(dir_path, exist_ok=True)
-
-            logger.info(
-                "Exporting train and test files"
-            )
-
-            train_set.to_csv(
-                self.data_ingestion_config.training_file_path,
-                index=False,
-                header=True
-            )
-
-            test_set.to_csv(
-                self.data_ingestion_config.testing_file_path,
-                index=False,
-                header=True
-            )
-
-            logger.info(
-                "Successfully exported train and test files"
-            )
-
-        except Exception as e:
-            raise MyException(e, sys) from e
-
-    def initiate_data_ingestion(
-        self
-    ) -> DataIngestionArtifact:
-        """
-        Method Name : initiate_data_ingestion
-
-        Description :
-        This method initiates data ingestion pipeline
-
-        Output :
-        Returns data ingestion artifact
-
-        On Failure :
-        Write an exception log and then raise an exception
-        """
-
-        logger.info(
-            "Entered initiate_data_ingestion method "
-            "of DataIngestion class"
-        )
-
-        try:
-
-            dataframe = self.export_data_into_feature_store()
-
-            logger.info(
-                "Successfully fetched data from PostgreSQL"
-            )
-
-            self.split_data_as_train_test(dataframe)
-
-            logger.info(
-                "Performed train test split successfully"
-            )
-
-            logger.info(
-                "Exited initiate_data_ingestion method "
-                "of DataIngestion class"
-            )
-
+            # ── Build Artifact ─────────────────────────────────
             data_ingestion_artifact = DataIngestionArtifact(
-                trained_file_path=
-                self.data_ingestion_config.training_file_path,
-
-                test_file_path=
-                self.data_ingestion_config.testing_file_path
+                trained_file_path = self.data_ingestion_config.training_file_path,
+                test_file_path    = self.data_ingestion_config.testing_file_path
             )
 
+            logger.info("=" * 60)
+            logger.info("Data Ingestion: COMPLETED SUCCESSFULLY ✅")
+            logger.info("=" * 60)
             logger.info(
-                f"Data ingestion artifact: {data_ingestion_artifact}"
+                "📦 Artifact → train='%s', test='%s'",
+                data_ingestion_artifact.trained_file_path,
+                data_ingestion_artifact.test_file_path
             )
 
             return data_ingestion_artifact
 
         except Exception as e:
-            raise MyException(e, sys) from e
+            logger.error(
+                "Data Ingestion: FAILED — %s", str(e),
+                exc_info=True
+            )
+            raise MyException(e, sys)

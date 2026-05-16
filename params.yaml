@@ -1,0 +1,45 @@
+data_ingestion:
+  test_size: 0.2
+ 
+  # ── "postgres" | "s3" | "both" ──
+  source: "both"
+
+  postgres:
+    table: "emails"
+    query: "SELECT * FROM emails"
+
+  s3:
+    bucket_name: "email-bucket-mlops"
+    file_key:    "spam_assassin.csv"
+
+
+mlflow:
+  experiment_name: "Spam-Detection-XGBoost-v1"
+
+
+  vectorizer: "TF-IDF"
+  test_size:  0.2
+  source:     "both"             # "postgres" | "s3" | "both"
+
+  postgres:
+    table: "emails"
+    query: "SELECT * FROM emails"
+
+  s3:
+    bucket_name: "your-bucket-name"
+    file_key:    "data/raw/spam_assassin.csv"
+
+model_trainer:
+  xgboost:
+    n_estimators:     200
+    max_depth:        6
+    learning_rate:    0.1
+    subsample:        0.8
+    colsample_bytree: 0.8
+    eval_metric:      "logloss"
+    random_state:     42
+
+  cross_validation:
+    n_splits:     5
+    shuffle:      true
+    random_state: 42

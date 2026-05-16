@@ -6,7 +6,7 @@ import pandas as pd
 
 from pandas import DataFrame
 from src.utils.exception import MyException
-from src.utils.logger import logging
+from src.utils.logger import logger
 from src.utils.main_utils import read_yaml_file
 from src.entity.artifact_entity import (
     DataIngestionArtifact,
@@ -56,7 +56,7 @@ class DataValidation:
                 == len(self._schema_config["columns"])
             )
 
-            logging.info(
+            logger.info(
                 f"Is required column present: [{status}]"
             )
 
@@ -84,7 +84,7 @@ class DataValidation:
 
             if len(missing_numerical_columns) > 0:
 
-                logging.info(
+                logger.info(
                     f"Missing numerical column: "
                     f"{missing_numerical_columns}"
                 )
@@ -96,7 +96,7 @@ class DataValidation:
 
             if len(missing_categorical_columns) > 0:
 
-                logging.info(
+                logger.info(
                     f"Missing categorical column: "
                     f"{missing_categorical_columns}"
                 )
@@ -135,7 +135,7 @@ class DataValidation:
 
             validation_error_msg = ""
 
-            logging.info("Starting data validation")
+            logger.info("Starting data validation")
 
             train_df, test_df = (
                 DataValidation.read_data(
@@ -158,7 +158,7 @@ class DataValidation:
                 )
 
             else:
-                logging.info(
+                logger.info(
                     f"All required columns present "
                     f"in training dataframe: {status}"
                 )
@@ -173,7 +173,7 @@ class DataValidation:
                 )
 
             else:
-                logging.info(
+                logger.info(
                     f"All required columns present "
                     f"in testing dataframe: {status}"
                 )
@@ -187,7 +187,7 @@ class DataValidation:
                 )
 
             else:
-                logging.info(
+                logger.info(
                     f"All categorical/int columns present "
                     f"in training dataframe: {status}"
                 )
@@ -200,7 +200,7 @@ class DataValidation:
                 )
 
             else:
-                logging.info(
+                logger.info(
                     f"All categorical/int columns present "
                     f"in testing dataframe: {status}"
                 )
@@ -235,12 +235,12 @@ class DataValidation:
                     indent=4
                 )
 
-            logging.info(
+            logger.info(
                 "Data validation artifact created "
                 "and saved to JSON file."
             )
 
-            logging.info(
+            logger.info(
                 f"Data validation artifact: "
                 f"{data_validation_artifact}"
             )

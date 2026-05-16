@@ -1,189 +1,195 @@
-import os
-import sys
+# ─────────────────────────────────────────────
+# Data Ingestion — Load from PostgreSQL + S3 simultaneously
+# ─────────────────────────────────────────────
+import numpy as np
 import pandas as pd
+pd.set_option('future.no_silent_downcasting', True)
+import os
+import concurrent.futures                          # ✅ run both sources in parallel
+from sklearn.model_selection import train_test_split
+import yaml
+import logging
+from src.utils.logger import logging
+from src.configuration.aws_connection import s3_operations
 
-from sqlalchemy import create_engine
-from sqlalchemy.exc import SQLAlchemyError
+import psycopg2
+from sqlalchemy import create_engine 
+from dotenv import load_dotenv
 
-from src.utils.logger import logger
-from src.utils.exception import MyException
-
-
-class LoadData:
-
-    def __init__(self):
-
-        self.db_url = os.getenv("POSTGRES_URL")
-        self.table_name = "emails"
-
-        logger.info("✅ LoadData class initialized")
-
-    # ─────────────────────────────────────────────
-    # Create PostgreSQL Connection
-    # ─────────────────────────────────────────────
-    def create_connection(self):
-
-        try:
-
-            logger.info("🔌 Creating PostgreSQL connection")
-            engine = create_engine(self.db_url)
-            logger.info("✅ PostgreSQL connection established")
-            return engine
-
-        except SQLAlchemyError as e:
-            logger.error( f"❌ Database connection error: {e}")
-            raise MyException(e, sys)
-
-    # ─────────────────────────────────────────────
-    # Fetch Data From PostgreSQL
-    # ─────────────────────────────────────────────
-    def fetch_data(self) -> pd.DataFrame:
-
-        try:
-            logger.info(
-                f"📥 Fetching data from table: {self.table_name}"
-            )
-            engine = self.create_connection()
-            query = f"SELECT * FROM {self.table_name}"
-            df = pd.read_sql(query, engine)
-            logger.info(f"✅ Successfully fetched {len(df)} rows")
-            logger.info(f"📊 Data shape: {df.shape}")
-
-            return df
-
-        except Exception as e:
-
-            logger.error( f"❌ Error while fetching data: {e}")
-
-            raise MyException(e, sys)
-
-    # ─────────────────────────────────────────────
-    # Save DataFrame To CSV
-    # ─────────────────────────────────────────────
-    def save_to_csv( self, df: pd.DataFrame, file_path: str = "data/emails.csv" ) -> str:
-
-        try:
-
-            logger.info( "💾 Saving dataframe to CSV")
-            # Create folder if not exists
-            dir_path = os.path.dirname(file_path)
-
-            if dir_path:
-
-                os.makedirs(
-                    dir_path,
-                    exist_ok=True
-                )
-
-            # Save CSV
-            df.to_csv(
-                file_path,
-                index=False,
-                encoding="utf-8"
-            )
-
-            abs_path = os.path.abspath(file_path)
-
-            logger.info(
-                f"✅ CSV saved successfully at: {abs_path}"
-            )
-
-            logger.info(
-                f"📊 Saved Rows: {len(df)} | Columns: {len(df.columns)}"
-            )
-
-            return abs_path
-
-        except PermissionError as e:
-
-            logger.error(
-                f"❌ Permission denied while saving CSV: {e}"
-            )
-
-            raise MyException(e, sys)
-
-        except Exception as e:
-
-            logger.error(
-                f"❌ Failed to save CSV: {e}"
-            )
-
-            raise MyException(e, sys)
-
-    # ─────────────────────────────────────────────
-    # Fetch + Save Pipeline
-    # ─────────────────────────────────────────────
-    def fetch_and_save(
-        self,
-        table_name: str = "emails",
-        file_path: str = "data/emails.csv"
-    ) -> pd.DataFrame:
-
-        try:
-
-            logger.info(
-                "🔄 Starting fetch-and-save pipeline"
-            )
-
-            # Dynamic table name
-            self.table_name = table_name
-
-            # Fetch data
-            df = self.fetch_data()
-
-            # Save CSV
-            self.save_to_csv(df, file_path)
-
-            logger.info(
-                "🏁 Fetch-and-save pipeline completed"
-            )
-
-            return df
-
-        except Exception as e:
-
-            logger.error(
-                f"❌ Pipeline failed: {e}"
-            )
-
-            raise MyException(e, sys)
 
 
 # ─────────────────────────────────────────────
-# Main Execution
+# Load .env file
 # ─────────────────────────────────────────────
-if __name__ == "__main__":
+load_dotenv()
 
+
+# ─────────────────────────────────────────────
+# Load Params from YAML
+# ─────────────────────────────────────────────
+def load_params(params_path: str) -> dict:
+    """Load parameters from a YAML file."""
     try:
-
-        logger.info(
-            "🚀 Data loading process started"
-        )
-
-        obj = LoadData()
-
-        # Fetch data and save CSV
-        data = obj.fetch_and_save(
-            table_name="emails",
-            file_path="data/emails.csv"
-        )
-
-        logger.info(
-            "📌 Displaying first 5 rows"
-        )
-
-        print("\n📌 First 5 Rows:\n")
-
-        print(data.head())
-
-        logger.info(
-            "✅ Program executed successfully"
-        )
-
+        with open(params_path, 'r') as file:
+            params = yaml.safe_load(file)
+        logging.debug('Parameters retrieved from %s', params_path)
+        return params
+    except FileNotFoundError:
+        logging.error('File not found: %s', params_path)
+        raise
+    except yaml.YAMLError as e:
+        logging.error('YAML error: %s', e)
+        raise
     except Exception as e:
+        logging.error('Unexpected error: %s', e)
+        raise
 
-        logger.error(
-            "❌ Main execution failed"
+
+# ─────────────────────────────────────────────
+# Load from PostgreSQL
+# ─────────────────────────────────────────────
+def load_data_from_postgres(pg_config: dict) -> pd.DataFrame:
+    """Load data from PostgreSQL — credentials from .env"""
+    try:
+        # ── Credentials from .env ──────────────────────────────────
+        host     = os.getenv("POSTGRES_HOST")
+        port     = os.getenv("POSTGRES_PORT", "5432")
+        database = os.getenv("POSTGRES_DB")
+        user     = os.getenv("POSTGRES_USER")
+        password = os.getenv("POSTGRES_PASSWORD")
+
+        # ── Non-sensitive config from params.yaml ──────────────────
+        table = pg_config['table']
+        query = pg_config.get('query', f"SELECT * FROM {table}")
+
+        # ── Validate env vars ───────────────────────────────────────
+        missing = [
+            k for k, v in {
+                "POSTGRES_HOST"    : host,
+                "POSTGRES_DB"      : database,
+                "POSTGRES_USER"    : user,
+                "POSTGRES_PASSWORD": password,
+            }.items() if not v
+        ]
+        if missing:
+            raise EnvironmentError(
+                f"Missing required environment variables: {missing}"
+            )
+
+        # ── Connect and fetch ───────────────────────────────────────
+        connection_string = (
+            f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}"
         )
 
-        raise MyException(e, sys)
+        logging.info(
+            "Connecting to PostgreSQL at %s:%s/%s as user '%s'",
+            host, port, database, user
+        )
+
+        engine = create_engine(connection_string)
+
+        with engine.connect() as conn:
+            df = pd.read_sql(query, conn)
+
+        logging.info(
+            "✅ PostgreSQL — loaded table '%s' — shape: %s",
+            table, df.shape
+        )
+        return df
+
+    except EnvironmentError:
+        raise
+    except Exception as e:
+        logging.error("Failed to load data from PostgreSQL: %s", e)
+        raise
+
+
+# ─────────────────────────────────────────────
+# Load from S3
+# ─────────────────────────────────────────────
+def load_data_from_s3(s3_config: dict) -> pd.DataFrame:
+    """Load CSV from S3 — credentials from .env"""
+    try:
+        # ── Credentials from .env ──────────────────────────────────
+        access_key = os.getenv("AWS_ACCESS_KEY")
+        secret_key = os.getenv("AWS_SECRET_KEY")
+        region     = os.getenv("AWS_REGION")
+
+        # ── Non-sensitive config from params.yaml ──────────────────
+        bucket_name = s3_config['bucket_name']
+        file_key    = s3_config['file_key']
+
+        # ── Validate env vars ───────────────────────────────────────
+        # missing = [
+        #     k for k, v in {
+        #         "AWS_ACCESS_KEY_ID"    : access_key,
+        #         "AWS_SECRET_ACCESS_KEY": secret_key,
+        #     }.items() if not v
+        # ]
+        # if missing:
+        #     raise EnvironmentError(
+        #         f"Missing required environment variables: {missing}"
+        #     )
+
+        logging.info(
+            "Connecting to S3 bucket '%s' in region '%s'",
+            bucket_name, region
+        )
+
+        s3 = s3_operations(bucket_name, access_key, secret_key)
+        df = s3.fetch_file_from_s3(file_key)
+
+        logging.info(
+            "✅ S3 — loaded '%s/%s' — shape: %s",
+            bucket_name, file_key, df.shape
+        )
+        return df
+
+    except EnvironmentError:
+        raise
+    except Exception as e:
+        logging.error("Failed to load data from S3: %s", e)
+        raise
+
+
+# ─────────────────────────────────────────────
+# ✅ NEW: Load from BOTH simultaneously
+# ─────────────────────────────────────────────
+def load_data_from_both(pg_config: dict, s3_config: dict) -> pd.DataFrame:
+    """
+    Fetch from PostgreSQL and S3 at the same time using
+    ThreadPoolExecutor, then merge both DataFrames into one.
+    """
+    logging.info("🚀 Fetching from PostgreSQL and S3 simultaneously...")
+
+    # ── Run both loaders in parallel threads ───────────────────────
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        future_pg = executor.submit(load_data_from_postgres, pg_config)
+        future_s3 = executor.submit(load_data_from_s3, s3_config)
+
+        # ── Collect results (raises exception if either failed) ─────
+        df_pg = future_pg.result()
+        df_s3 = future_s3.result()
+
+    logging.info("PostgreSQL rows : %d", len(df_pg))
+    logging.info("S3 rows         : %d", len(df_s3))
+
+    # ── Tag source so you know where each row came from ────────────
+    df_pg['_source'] = 'postgres'
+    df_s3['_source'] = 's3'
+
+    # ── Combine both DataFrames ─────────────────────────────────────
+    df_combined = pd.concat([df_pg, df_s3], ignore_index=True)
+
+    # ── Drop exact duplicates (same email in both sources) ─────────
+    before = len(df_combined)
+    df_combined = df_combined.drop_duplicates(
+        subset=[c for c in df_combined.columns if c != '_source']
+    )
+    after = len(df_combined)
+
+    logging.info(
+        "✅ Combined shape: %s  (dropped %d duplicates)",
+        df_combined.shape, before - after
+    )
+    return df_combined
