@@ -7,15 +7,11 @@ import numpy as np
 import pandas as pd
 from src.utils.logger import logger
 
-
-
-
 from scipy.sparse import hstack, csr_matrix
 from constants import SCHEMA_FILE_PATH
 from src.utils.logger    import logger
 from src.utils.exception import MyException
 from src.utils.main_utils import read_yaml_file
-import re
 from src.components.data_transformation import EmailParser, EmailMetaFeatureExtractor, BodyFeatureExtractor
 
 # ── Same constants as data_transformation.py ─────────────────────────────────
@@ -46,6 +42,38 @@ def get_latest_preprocessor_path(base_dir: str = './artifact') -> str:
     latest = max(preprocessor_files, key=os.path.getmtime)
     logger.info(f'Latest preprocessor found at: {latest}')
     return latest
+
+
+def _inject_headers_if_missing(email_text: str) -> str:
+    """
+    Agar email mein headers missing hain (From, To, Subject, Date)
+    toh automatically neutral headers inject karta hai.
+    Yeh ensure karta hai ki EmailParser sahi se kaam kare
+    even jab user sirf body paste kare.
+    """
+    header_keywords = ("from:", "to:", "subject:", "date:", "message-id:", "mime-version:")
+    first_lines = email_text.strip().lower()[:200]
+
+    has_headers = any(first_lines.startswith(kw) or f"\n{kw}" in first_lines for kw in header_keywords)
+
+    if not has_headers:
+        # Subject ke liye pehli non-empty line use karo
+        lines = [l.strip() for l in email_text.strip().split('\n') if l.strip()]
+        subject_line = lines[0][:100] if lines else "No Subject"
+
+        logger.info("No headers detected — injecting default headers for parsing")
+
+        injected = (
+            f"From: unknown@unknown.com\n"
+            f"To: user@gmail.com\n"
+            f"Subject: {subject_line}\n"
+            f"Date: Mon, 17 May 2026 00:00:00 +0000\n"
+            f"\n"
+            f"{email_text.strip()}"
+        )
+        return injected
+
+    return email_text
 
 
 class PredictionPipeline:
@@ -106,9 +134,10 @@ class PredictionPipeline:
     def predict(self, email_text: str) -> dict:
         """
         Takes raw email text as input and returns prediction.
+        Automatically injects headers if missing.
 
         Args:
-            email_text: Raw email string
+            email_text: Raw email string (with or without headers)
 
         Returns:
             dict with label and probability
@@ -118,7 +147,11 @@ class PredictionPipeline:
             logger.info("=" * 50)
             logger.info("Prediction: STARTED")
 
+            # ── Step 0: Inject headers if missing ────────────
+            email_text = _inject_headers_if_missing(email_text)
+
             # ── Step 1: Parse email ───────────────────────────
+            logger.info("[Step 1/5] Parsing email text")
             parser  = self.transformers["email_parser"]
             X       = parser.transform(pd.Series([email_text]))
 
