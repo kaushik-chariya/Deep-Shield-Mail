@@ -16,7 +16,7 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.impute import SimpleImputer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.base import BaseEstimator, TransformerMixin
-from src.utils.logger import logger
+
 from constants import TARGET_COLUMN, SCHEMA_FILE_PATH
 
 from src.entity.config_entity import DataTransformationConfig
@@ -71,12 +71,12 @@ class EmailParser(BaseEstimator, TransformerMixin):
         import re
 
         HEADER_KEYS_RE = re.compile(
-    r'\b(From|Return-Path|Delivered-To|Received|Message-Id|To|Subject|Date|'
-    r'MIME-Version|Content-Type|Content-Transfer-Encoding|Delivery-Date|'
-    r'Reply-To|Cc|Bcc|In-Reply-To|References|Importance|Thread-Index|'
-    r'Thread-Topic|Organization|X-[\w-]+):\s*',
-    re.IGNORECASE
-)
+            r'\b(From|Return-Path|Delivered-To|Received|Message-Id|To|Subject|Date|'
+            r'MIME-Version|Content-Type|Content-Transfer-Encoding|Delivery-Date|'
+            r'Reply-To|Cc|Bcc|In-Reply-To|References|Importance|Thread-Index|'
+            r'Thread-Topic|Organization|X-[\w-]+):\s*',
+            re.IGNORECASE
+        )
         matches    = list(HEADER_KEYS_RE.finditer(text))
         if not matches:
             return text
@@ -126,6 +126,9 @@ class EmailMetaFeatureExtractor(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
+        import pandas as pd
+        import numpy as np
+        from src.utils.logger import logger
         logger.info("EmailMetaFeatureExtractor.transform: started — input shape: %s", X.shape)
         df = X.copy()
         df['from_email']  = df['from'].str.extract(r'<?([\w.\+\-]+@[\w.\-]+\.\w+)>?')
@@ -155,6 +158,9 @@ class BodyFeatureExtractor(BaseEstimator, TransformerMixin):
         return int(match.group(1)) if match else -1
 
     def transform(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
+        import pandas as pd
+        import numpy as np
+        from src.utils.logger import logger
         logger.info("BodyFeatureExtractor.transform: started — input shape: %s", X.shape)
         df   = X.copy()
         body = df['body'].fillna('').str
@@ -168,7 +174,7 @@ class BodyFeatureExtractor(BaseEstimator, TransformerMixin):
         df['num_question'] = body.count(r'\?')
         df['has_free']     = body.contains('free',            case=False).astype(int)
         df['has_win']      = body.contains(r'win|winner',     case=False).astype(int)
-        df['has_urgent']   = body.contains(r'urgent|act now', case=False).astype(int)
+        df['has_urgent']   = body.contains(r'urgent|act now|verify|suspend', case=False).astype(int)
         df['body_len']     = body.len()
         df['num_links']    = body.count(r'https?://')
         df['num_digits']   = body.count(r'\d')
@@ -179,11 +185,10 @@ class BodyFeatureExtractor(BaseEstimator, TransformerMixin):
 
 
 # ───────────────────────────────────────────────────────────────
-# Save Helper  (same pattern as feature_engineering.py → save_data)
+# Save Helper
 # ───────────────────────────────────────────────────────────────
 
 def save_numpy_array(file_path: str, array: np.ndarray) -> None:
-    """Save a numpy array to disk — mirrors save_data() in feature_engineering.py."""
     try:
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         np.save(file_path, array)
@@ -300,60 +305,60 @@ class DataTransformation:
                 raise Exception(self.data_validation_artifact.message)
 
             # ── Step 1: Load ───────────────────────────────────
-            logger.info("[Step 1/11] Loading raw CSVs")
+            logger.info("[Step 1/10] Loading raw CSVs")
             train_df = self.read_data(self.data_ingestion_artifact.trained_file_path)
             test_df  = self.read_data(self.data_ingestion_artifact.test_file_path)
 
             # ── Step 2: Separate target ────────────────────────
-            logger.info("[Step 2/11] Separating target column '%s'", TARGET_COLUMN)
+            logger.info("[Step 2/10] Separating target column '%s'", TARGET_COLUMN)
             y_train     = train_df[TARGET_COLUMN].reset_index(drop=True)
             y_test      = test_df[TARGET_COLUMN].reset_index(drop=True)
             X_train_raw = train_df.drop(columns=[TARGET_COLUMN]).reset_index(drop=True)
             X_test_raw  = test_df.drop(columns=[TARGET_COLUMN]).reset_index(drop=True)
 
             # ── Step 3: Parse email ────────────────────────────
-            logger.info("[Step 3/11] Parsing raw email text")
+            logger.info("[Step 3/10] Parsing raw email text")
             parser  = EmailParser()
             X_train = parser.fit_transform(X_train_raw['text'])
             X_test  = parser.transform(X_test_raw['text'])
 
             # ── Step 4: Meta features ──────────────────────────
-            logger.info("[Step 4/11] Extracting meta features")
+            logger.info("[Step 4/10] Extracting meta features")
             meta_extractor = EmailMetaFeatureExtractor()
             X_train = meta_extractor.fit_transform(X_train)
             X_test  = meta_extractor.transform(X_test)
 
             # ── Step 5: Body features ──────────────────────────
-            logger.info("[Step 5/11] Extracting body features")
+            logger.info("[Step 5/10] Extracting body features")
             body_extractor = BodyFeatureExtractor()
             X_train = body_extractor.fit_transform(X_train)
             X_test  = body_extractor.transform(X_test)
 
             # ── Step 6: Drop schema columns ────────────────────
-            logger.info("[Step 6/11] Dropping schema-defined columns")
+            logger.info("[Step 6/10] Dropping schema-defined columns")
             X_train = self._drop_columns(X_train)
             X_test  = self._drop_columns(X_test)
 
             # ── Step 7: Drop high cardinality ──────────────────
-            logger.info("[Step 7/11] Dropping high-cardinality columns")
+            logger.info("[Step 7/10] Dropping high-cardinality columns")
             X_train = self._drop_high_cardinality_cols(X_train)
             X_test  = self._drop_high_cardinality_cols(X_test)
 
             # ── Step 8: Dedup train only ───────────────────────
-            logger.info("[Step 8/11] Deduplicating train set")
+            logger.info("[Step 8/10] Deduplicating train set")
             before_dedup  = len(X_train)
             X_train_dedup = self._drop_train_duplicates(X_train)
             kept_indices  = X_train_dedup.index
             y_train       = y_train.iloc[kept_indices].reset_index(drop=True)
             X_train       = X_train_dedup.reset_index(drop=True)
-            logger.info("[Step 8/11] before=%d, after=%d", before_dedup, len(X_train))
+            logger.info("[Step 8/10] before=%d, after=%d", before_dedup, len(X_train))
 
             assert len(X_test) == len(y_test), (
                 f"X_test / y_test length mismatch: {len(X_test)} vs {len(y_test)}"
             )
 
             # ── Step 9: Build sparse matrices ──────────────────
-            logger.info("[Step 9/11] Building sparse feature matrices")
+            logger.info("[Step 9/10] Building sparse feature matrices")
             transformers  = self.get_data_transformer_object()
             X_train_final = self._build_feature_matrix(X_train, transformers, fit=True)
             X_test_final  = self._build_feature_matrix(X_test,  transformers, fit=False)
@@ -364,17 +369,16 @@ class DataTransformation:
             )
 
             # ── Step 10: Concatenate features + target ─────────
-            logger.info("[Step 10/11] Concatenating features with target")
+            logger.info("[Step 10/10] Concatenating features with target")
             y_train_sparse = csr_matrix(np.array(y_train).reshape(-1, 1))
             y_test_sparse  = csr_matrix(np.array(y_test).reshape(-1, 1))
 
             train_arr = hstack([X_train_final, y_train_sparse]).toarray()
             test_arr  = hstack([X_test_final,  y_test_sparse]).toarray()
-            logger.info("[Step 10/11] train=%s, test=%s", train_arr.shape, test_arr.shape)
+            logger.info("[Step 10/10] train=%s, test=%s", train_arr.shape, test_arr.shape)
 
-            # ── Step 11: Save artifacts ────────────────────────
-            # Same pattern as feature_engineering.py → save_data()
-            logger.info("[Step 11/11] Saving transformation artifacts")
+            # ── Save artifacts ─────────────────────────────────
+            logger.info("Saving transformation artifacts")
 
             all_transformers = {
                 **transformers,
@@ -388,7 +392,7 @@ class DataTransformation:
                 all_transformers
             )
             logger.info(
-                "[Step 11/11] preprocessor saved → '%s'",
+                "Preprocessor saved → '%s'",
                 self.data_transformation_config.transformed_object_file_path
             )
 
@@ -397,7 +401,7 @@ class DataTransformation:
                 array=train_arr
             )
             logger.info(
-                "[Step 11/11] train array saved → '%s'",
+                "Train array saved → '%s'",
                 self.data_transformation_config.transformed_train_file_path
             )
 
@@ -406,7 +410,7 @@ class DataTransformation:
                 array=test_arr
             )
             logger.info(
-                "[Step 11/11] test array saved → '%s'",
+                "Test array saved → '%s'",
                 self.data_transformation_config.transformed_test_file_path
             )
 
@@ -424,6 +428,7 @@ class DataTransformation:
             logger.error("Data Transformation: FAILED — %s", str(e), exc_info=True)
             raise MyException(e, sys) from e
 
+
 if __name__ == "__main__":
     from src.entity.config_entity import DataIngestionConfig, DataTransformationConfig, DataValidationConfig
     from src.entity.artifact_entity import DataIngestionArtifact, DataValidationArtifact
@@ -440,6 +445,10 @@ if __name__ == "__main__":
     )
 
     config = DataTransformationConfig()
-    obj = DataTransformation(data_ingestion_artifact=ingestion_artifact, data_validation_artifact=validation_artifact, data_transformation_config=config)
+    obj = DataTransformation(
+        data_ingestion_artifact=ingestion_artifact,
+        data_validation_artifact=validation_artifact,
+        data_transformation_config=config
+    )
     artifact = obj.initiate_data_transformation()
     print(artifact)
