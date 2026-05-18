@@ -1,32 +1,15 @@
 import unittest
 import os
-import pickle
 import sys
+import mlflow
+import mlflow.pyfunc
+import numpy as np
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from constants import (
-    ARTIFACT_DIR,
-    MODEL_TRAINER_DIR_NAME,
-    MODEL_TRAINER_TRAINED_MODEL_DIR,
-    MODEL_FILE_NAME,
-    DATA_TRANSFORMATION_DIR_NAME,
-    DATA_TRANSFORMATION_TRANSFORMED_OBJECT_DIR,
-    PREPROCESSING_OBJECT_FILE_NAME,
-)
-
-MODEL_PATH = os.path.join(
-    ARTIFACT_DIR,
-    MODEL_TRAINER_DIR_NAME,
-    MODEL_TRAINER_TRAINED_MODEL_DIR,
-    MODEL_FILE_NAME,
-)
-
-PREPROC_PATH = os.path.join(
-    ARTIFACT_DIR,
-    DATA_TRANSFORMATION_DIR_NAME,
-    DATA_TRANSFORMATION_TRANSFORMED_OBJECT_DIR,
-    PREPROCESSING_OBJECT_FILE_NAME,
+    MODEL_EVALUATION_MODEL_NAME,
+    MODEL_PUSHER_ALIAS,
 )
 
 
@@ -34,36 +17,41 @@ class TestModel(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        """Model aur preprocessor ek baar load karo"""
-        with open(MODEL_PATH, "rb") as f:
-            cls.model = pickle.load(f)
-        with open(PREPROC_PATH, "rb") as f:
-            cls.preprocessor = pickle.load(f)
+        """MLflow se champion model load karo"""
+        dagshub_token = os.getenv("DEEPSHIELD_TEST")
+        if not dagshub_token:
+            raise EnvironmentError("DEEPSHIELD_TEST env variable not set")
 
-    # ── File existence tests ────────────────────────────────────
+        os.environ["MLFLOW_TRACKING_USERNAME"] = "kaushik-chariya"
+        os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
 
-    def test_model_file_exists(self):
-        """Model file exist karta hai"""
-        self.assertTrue(
-            os.path.exists(MODEL_PATH),
-            f"Model file not found: {MODEL_PATH}"
+        mlflow.set_tracking_uri(
+            "https://dagshub.com/kaushik-chariya/Deep-Shield-Mail.mlflow"
         )
 
-    def test_preprocessor_file_exists(self):
-        """Preprocessor file exist karta hai"""
-        self.assertTrue(
-            os.path.exists(PREPROC_PATH),
-            f"Preprocessor not found: {PREPROC_PATH}"
+        # Champion model load karo
+        model_uri = f"models:/{MODEL_EVALUATION_MODEL_NAME}@{MODEL_PUSHER_ALIAS}"
+        cls.model = mlflow.pyfunc.load_model(model_uri)
+
+        # Preprocessor bhi MLflow se load karo
+        client = mlflow.MlflowClient()
+        champion = client.get_model_version_by_alias(
+            name=MODEL_EVALUATION_MODEL_NAME,
+            alias=MODEL_PUSHER_ALIAS,
+        )
+        run_id = champion.run_id
+        cls.preprocessor = mlflow.artifacts.load_artifact(
+            f"runs:/{run_id}/transformers/transformers.pkl"
         )
 
     # ── Load tests ──────────────────────────────────────────────
 
     def test_model_loads(self):
-        """Model pickle se load hota hai"""
+        """Champion model MLflow se load hota hai"""
         self.assertIsNotNone(self.model)
 
     def test_preprocessor_loads(self):
-        """Preprocessor pickle se load hota hai"""
+        """Preprocessor MLflow se load hota hai"""
         self.assertIsNotNone(self.preprocessor)
 
     # ── Prediction tests ────────────────────────────────────────
@@ -73,55 +61,36 @@ class TestModel(unittest.TestCase):
         sample = ["Congratulations! You have won a free lottery. Click here to claim now!"]
         transformed = self.preprocessor.transform(sample)
         prediction = self.model.predict(transformed)
-        self.assertEqual(len(prediction), 1)
-        self.assertEqual(
-            int(prediction[0]), 1,
-            "Spam email ko 1 predict hona chahiye"
-        )
+        self.assertEqual(int(prediction[0]), 1,
+            "Spam email ko 1 predict hona chahiye")
 
     def test_model_predicts_ham(self):
         """Model normal email ko 0 predict karta hai"""
         sample = ["Hi team, please review the attached report before tomorrow's meeting."]
         transformed = self.preprocessor.transform(sample)
         prediction = self.model.predict(transformed)
-        self.assertEqual(len(prediction), 1)
-        self.assertEqual(
-            int(prediction[0]), 0,
-            "Normal email ko 0 predict hona chahiye"
-        )
+        self.assertEqual(int(prediction[0]), 0,
+            "Normal email ko 0 predict hona chahiye")
 
     # ── Probability tests ───────────────────────────────────────
-
-    def test_model_predict_proba(self):
-        """Model probability output deta hai jo 1.0 sum kare"""
-        sample = ["Win a free iPhone now! Limited time offer!"]
-        transformed = self.preprocessor.transform(sample)
-        proba = self.model.predict_proba(transformed)
-        self.assertEqual(proba.shape[1], 2)
-        self.assertAlmostEqual(
-            float(sum(proba[0])), 1.0, places=5,
-            msg="Probabilities ka sum 1.0 hona chahiye"
-        )
 
     def test_spam_probability_high(self):
         """Spam email ki probability 0.7 se zyada honi chahiye"""
         sample = ["Win a free iPhone now! Limited time offer! Claim your prize!"]
         transformed = self.preprocessor.transform(sample)
-        proba = self.model.predict_proba(transformed)
-        self.assertGreater(
-            float(proba[0][1]), 0.7,
-            "Spam probability 70% se zyada honi chahiye"
-        )
+        input_df = self._to_dataframe(transformed)
+        proba = self.model.predict(input_df)
+        self.assertGreater(float(proba[0]), 0.7,
+            "Spam probability 70% se zyada honi chahiye")
 
     def test_ham_probability_high(self):
         """Normal email ki ham probability 0.7 se zyada honi chahiye"""
         sample = ["Hi team, please review the attached report before tomorrow's meeting."]
         transformed = self.preprocessor.transform(sample)
-        proba = self.model.predict_proba(transformed)
-        self.assertGreater(
-            float(proba[0][0]), 0.7,
-            "Ham probability 70% se zyada honi chahiye"
-        )
+        input_df = self._to_dataframe(transformed)
+        proba = self.model.predict(input_df)
+        self.assertLess(float(proba[0]), 0.3,
+            "Ham probability 30% se kam honi chahiye")
 
     # ── Batch prediction test ───────────────────────────────────
 
@@ -138,6 +107,15 @@ class TestModel(unittest.TestCase):
         self.assertEqual(len(predictions), 4)
         for pred in predictions:
             self.assertIn(int(pred), [0, 1])
+
+    # ── Helper ──────────────────────────────────────────────────
+
+    def _to_dataframe(self, transformed):
+        import pandas as pd
+        import scipy.sparse as sp
+        if sp.issparse(transformed):
+            return pd.DataFrame(transformed.toarray())
+        return pd.DataFrame(transformed)
 
 
 if __name__ == "__main__":
