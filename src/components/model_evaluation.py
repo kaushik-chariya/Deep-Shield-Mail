@@ -7,6 +7,7 @@ import sys
 import glob
 import json
 import pickle
+import dill
 
 import numpy as np
 import mlflow
@@ -77,7 +78,7 @@ class ModelEvaluation:
 
     def _load_transformers(self, file_path: str) -> dict:
         with open(file_path, "rb") as f:
-            transformers = pickle.load(f)
+            transformers = dill.load(f)
         logger.info("🔧 Transformers loaded from: %s", file_path)
         return transformers
 

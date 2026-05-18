@@ -6,6 +6,7 @@ import os
 import sys
 import numpy as np
 import pickle
+import dill
 
 from sklearn.naive_bayes import MultinomialNB
 
@@ -99,9 +100,9 @@ class ModelTrainer:
                 "transformers.pkl",
             )
             with open(transformers_src, "rb") as f:
-                transformers = pickle.load(f)
+                transformers = dill.load(f)
             with open(transformers_dst, "wb") as f:
-                pickle.dump(transformers, f)
+                dill.dump(transformers, f)
             logger.info("💾 transformers.pkl saved → '%s'", transformers_dst)
 
             logger.info("=" * 60)

@@ -488,7 +488,31 @@ class DataTransformation:
                 transformed_train_file_path =self.data_transformation_config.transformed_train_file_path,
                 transformed_test_file_path  =self.data_transformation_config.transformed_test_file_path,
             )
-
         except Exception as e:
             logger.error("Data Transformation: FAILED — %s", str(e), exc_info=True)
             raise MyException(e, sys) from e
+
+
+if __name__ == "__main__":
+    from src.entity.config_entity import DataIngestionConfig, DataValidationConfig, DataTransformationConfig
+    from src.entity.artifact_entity import DataIngestionArtifact, DataValidationArtifact
+
+    ing_cfg = DataIngestionConfig()
+    val_cfg = DataValidationConfig()
+
+    ingestion_artifact = DataIngestionArtifact(
+        trained_file_path=ing_cfg.training_file_path,
+        test_file_path=ing_cfg.testing_file_path,
+    )
+    validation_artifact = DataValidationArtifact(
+        validation_status=True,
+        message="OK",
+        validation_report_file_path=val_cfg.validation_report_file_path,
+    )
+
+    dt = DataTransformation(
+        data_ingestion_artifact=ingestion_artifact,
+        data_validation_artifact=validation_artifact,
+        data_transformation_config=DataTransformationConfig(),
+    )
+    dt.initiate_data_transformation()
