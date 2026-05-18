@@ -29,11 +29,8 @@ class ModelPusher:
             os.environ["MLFLOW_TRACKING_USERNAME"] = "kaushik-chariya"
             os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
 
-            import dagshub
-            dagshub.init(
-                repo_owner="kaushik-chariya",
-                repo_name ="Deep-Shield-Mail",
-                mlflow    = True,
+            mlflow.set_tracking_uri(
+                "https://dagshub.com/kaushik-chariya/Deep-Shield-Mail.mlflow"
             )
             logger.info("ModelPusher: DagsHub + MLflow initialized ✅")
 
@@ -41,18 +38,10 @@ class ModelPusher:
             raise MyException(e, sys)
 
     def initiate_model_pusher(self, model_info: dict) -> None:
-        """
-        model_info expected keys (set by ModelEvaluation):
-            push_model : bool   — True agar naya model better hai
-            run_id     : str    — MLflow run ID
-            new_score  : float  — naye model ka score
-            best_score : float  — purane best model ka score (0.0 if first time)
-        """
         try:
             logger.info("=" * 60)
             logger.info("Model Pusher: STARTED")
 
-            # ── Guard: push_model flag check ───────────────────
             if not model_info.get('push_model', False):
                 new_score  = model_info.get('new_score',  'N/A')
                 best_score = model_info.get('best_score', 'N/A')
@@ -65,7 +54,6 @@ class ModelPusher:
                 logger.info("=" * 60)
                 return
 
-            # ── Push: register aur alias set karo ─────────────
             run_id     = model_info['run_id']
             new_score  = model_info.get('new_score',  'N/A')
             best_score = model_info.get('best_score', 0.0)
@@ -77,14 +65,12 @@ class ModelPusher:
 
             client = MlflowClient()
 
-            # Register model (already exists toh ignore karo)
             try:
                 client.create_registered_model(MODEL_EVALUATION_MODEL_NAME)
                 logger.info("Registered model '%s' created", MODEL_EVALUATION_MODEL_NAME)
             except Exception:
                 logger.info("Registered model '%s' already exists", MODEL_EVALUATION_MODEL_NAME)
 
-            # New version create karo
             model_version = client.create_model_version(
                 name  =MODEL_EVALUATION_MODEL_NAME,
                 source=source_uri,
@@ -92,7 +78,6 @@ class ModelPusher:
             )
             logger.info("Registered version: %s", model_version.version)
 
-            # Champion alias set karo
             client.set_registered_model_alias(
                 name   =MODEL_EVALUATION_MODEL_NAME,
                 alias  =MODEL_PUSHER_ALIAS,
@@ -111,10 +96,6 @@ class ModelPusher:
         except Exception as e:
             raise MyException(e, sys)
 
-
-# ───────────────────────────────────────────────────────────────
-# Standalone run
-# ───────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
     import json
