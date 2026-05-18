@@ -13,6 +13,7 @@ import numpy as np
 import mlflow
 import mlflow.sklearn
 from mlflow.tracking import MlflowClient
+from mlflow.models.signature import infer_signature      # ← WARNING FIX
 from sklearn.metrics import (
     accuracy_score,
     f1_score,
@@ -164,10 +165,16 @@ class ModelEvaluation:
                     for k, v in clf.get_params().items():
                         mlflow.log_param(k, v)
 
-                # ── Step 5: Log model ──────────────────────────
+                # ── Step 5: Log model  ─────────────────────────
+                # WARNING FIX: signature + input_example add kiya
+                input_example = X_test[:5]
+                signature     = infer_signature(X_test, clf.predict(X_test))
+
                 mlflow.sklearn.log_model(
-                    sk_model=clf,
-                    name="model",
+                    sk_model      = clf,
+                    name          = "model",
+                    signature     = signature,
+                    input_example = input_example,
                 )
                 logger.info("✅ clf logged to MLflow (artifact_path='model')")
 
