@@ -46,11 +46,8 @@ class ModelEvaluation:
             os.environ["MLFLOW_TRACKING_USERNAME"] = "kaushik-chariya"
             os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
 
-            import dagshub
-            dagshub.init(
-                repo_owner="kaushik-chariya",
-                repo_name ="Deep-Shield-Mail",
-                mlflow    =True,
+            mlflow.set_tracking_uri(
+                "https://dagshub.com/kaushik-chariya/Deep-Shield-Mail.mlflow"
             )
             logger.info("✅ ModelEvaluation: DagsHub + MLflow initialized")
 
@@ -60,7 +57,6 @@ class ModelEvaluation:
     # ── Private helpers ─────────────────────────────────────────
 
     def _get_latest_file(self, base_dir: str, pattern: str) -> str:
-        """Glob karo aur latest modified file return karo."""
         files = glob.glob(f"{base_dir}/**/{pattern}", recursive=True)
         if not files:
             raise FileNotFoundError(
@@ -104,10 +100,6 @@ class ModelEvaluation:
         }
 
     def _get_champion_accuracy(self, model_name: str) -> float:
-        """
-        MLflow registry se current champion model ki accuracy fetch karo.
-        Returns 0.0 agar koi champion nahi mila (pehli baar).
-        """
         try:
             client           = MlflowClient()
             champion_version = client.get_model_version_by_alias(
@@ -143,9 +135,9 @@ class ModelEvaluation:
             with mlflow.start_run() as run:
 
                 # ── Step 1: Load artifacts ─────────────────────
-                model_path       = self._get_latest_file("./artifact", "model.pkl")
-                transformers_path= self._get_latest_file("./artifact", "transformers.pkl")
-                test_data_path   = self._get_latest_file("./artifact", "test.npy")
+                model_path        = self._get_latest_file("./artifact", "model.pkl")
+                transformers_path = self._get_latest_file("./artifact", "transformers.pkl")
+                test_data_path    = self._get_latest_file("./artifact", "test.npy")
 
                 clf          = self._load_model(model_path)
                 transformers = self._load_transformers(transformers_path)
@@ -172,19 +164,17 @@ class ModelEvaluation:
                     for k, v in clf.get_params().items():
                         mlflow.log_param(k, v)
 
-                # ── Step 5: Log model (clf only — sklearn) ─────
+                # ── Step 5: Log model ──────────────────────────
                 mlflow.sklearn.log_model(
-                    sk_model     =clf,
-                    name ="model",
+                    sk_model=clf,
+                    name="model",
                 )
                 logger.info("✅ clf logged to MLflow (artifact_path='model')")
 
-                # ── Step 6: Log transformers.pkl (FIX) ─────────
-                # Transformers ko MLflow artifact mein save karo
-                # Prediction ke waqt raw email → preprocess → predict
+                # ── Step 6: Log transformers.pkl ───────────────
                 mlflow.log_artifact(
                     local_path   =transformers_path,
-                    artifact_path ="transformers",   # MLflow run ke andar folder
+                    artifact_path="transformers",
                 )
                 logger.info(
                     "✅ transformers.pkl logged to MLflow "
