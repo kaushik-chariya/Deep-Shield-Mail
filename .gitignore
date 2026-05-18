@@ -4,3 +4,5 @@ cred.txt/
 local_s3/
 .env/
 
+__pycache__/
+*.pyc
