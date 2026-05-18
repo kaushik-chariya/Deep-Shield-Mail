@@ -1,0 +1,349 @@
+================================================================
+   DEEP SHIELD MAIL — PIPELINE CHANGE SOP
+   NLP Naya Add Hua + Model Change
+================================================================
+
+----------------------------------------------------------------
+SOP-01 | params.yaml
+----------------------------------------------------------------
+
+FILE: params.yaml
+PRIORITY: 1 (Sabse Pehle)
+REASON: Saare components yahan se values padhte hain
+
+KYA CHANGE KARO:
+  - NLP ke params add karo:
+      max_features: 50000
+      ngram_range: [1, 2]
+      sublinear_tf: true
+      analyzer: "word"
+      stop_words: "english"
+
+  - Naye model ke hyperparameters add karo
+      (e.g., n_estimators, C, max_depth — jo bhi model use kiya)
+
+  - Test size / random state agar change karna ho:
+      test_size: 0.2
+      random_state: 42
+
+KAISE VERIFY KARO:
+  - YAML syntax sahi hai — indentation check karo
+  - Key names wahi hain jo config_entity.py mein use hote hain
+
+
+----------------------------------------------------------------
+SOP-02 | config/schema.yaml
+----------------------------------------------------------------
+
+FILE: config/schema.yaml
+PRIORITY: 2
+REASON: Data validation yahan se schema check karta hai
+
+KYA CHANGE KARO:
+  - Agar input mein koi naya column add hua ho toh define karo
+  - Email text column ka naam confirm karo (e.g., "text" ya "email")
+  - Target column ka naam confirm karo (e.g., "label" ya "spam")
+
+  Example:
+      columns:
+        - name: text
+          type: str
+        - name: label
+          type: int
+      target_column: label
+
+KAISE VERIFY KARO:
+  - data_validation.py run karo — report.yaml check karo
+
+
+----------------------------------------------------------------
+SOP-03 | src/components/data_ingestion.py
+----------------------------------------------------------------
+
+FILE: src/components/data_ingestion.py
+PRIORITY: 3
+REASON: Tera case mein MOSTLY CHANGE NAHI HOGA
+
+KYA CHECK KARO:
+  - Raw email CSV sahi aa rahi hai ya nahi
+  - Train/test split ho rahi hai
+  - Columns: text + label dono hain CSV mein
+
+CHANGE KARO SIRF AGAR:
+  - Naya data source add kiya ho (nayi table, nayi S3 bucket)
+  - Column names alag hain naye data mein
+  - Split ratio change karna ho (params.yaml se control hoga)
+
+OUTPUT: artifacts/<timestamp>/data_ingestion/ingested/train.csv, test.csv
+
+
+----------------------------------------------------------------
+SOP-04 | src/components/data_transformation.py  ⭐ SABSE BADA
+----------------------------------------------------------------
+
+FILE: src/components/data_transformation.py
+PRIORITY: 4 (Sabse Important Change)
+REASON: NLP pehle nahi tha — ab yahan poora NLP pipeline likhna hai
+
+KYA KARNA HAI STEP BY STEP:
+
+STEP 1 — Text Cleaning Function banao:
+  - Lowercase conversion
+  - HTML tags remove (BeautifulSoup ya regex)
+  - URLs remove
+  - Punctuation remove
+  - Numbers remove (optional)
+  - Extra whitespace remove
+  - Stop words remove (optional — TF-IDF khud handle karta hai)
+
+STEP 2 — Vectorizer choose karo:
+
+  OPTION A — TF-IDF (Recommended for spam):
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    vectorizer = TfidfVectorizer(
+        max_features=50000,
+        ngram_range=(1,2),
+        sublinear_tf=True,
+        analyzer='word',
+        stop_words='english'
+    )
+
+  OPTION B — CountVectorizer (simple bag of words):
+    from sklearn.feature_extraction.text import CountVectorizer
+
+  OPTION C — Word Embeddings / BERT:
+    (alag SOP chahiye hoga — batao to likhta hoon)
+
+STEP 3 — Fit only on TRAIN data:
+  X_train = vectorizer.fit_transform(train_text)
+  X_test  = vectorizer.transform(test_text)      # ← SIRF transform, fit nahi!
+
+STEP 4 — preprocessing.pkl save karo:
+  - Vectorizer ko pickle mein save karo
+  - Agar alag text cleaner bhi hai toh use bhi save karo
+  - Path: artifacts/<timestamp>/data_transformation/transformed_object/preprocessing.pkl
+
+STEP 5 — .npy files save karo:
+  - train.npy — transformed train features
+  - test.npy  — transformed test features
+  - Path: artifacts/<timestamp>/data_transformation/transformed/
+
+COMMON MISTAKES:
+  ❌ Test data pe fit_transform mat karna — sirf transform
+  ❌ Vectorizer save karna mat bhoolna — prediction mein chahiye
+  ❌ Label (y) ko transform mat karna — sirf text features transform honge
+
+
+----------------------------------------------------------------
+SOP-05 | src/components/model_trainer.py
+----------------------------------------------------------------
+
+FILE: src/components/model_trainer.py
+PRIORITY: 5
+REASON: Naya model plug in karna hai
+
+KYA CHANGE KARO:
+
+STEP 1 — Naya model import karo:
+  from sklearn.linear_model import LogisticRegression
+  # ya jo bhi model use kar rahe ho
+
+STEP 2 — params.yaml se hyperparameters lo:
+  params = read_yaml("params.yaml")
+  model = LogisticRegression(**params["model_params"])
+
+STEP 3 — .npy files load karo (data_transformation ka output):
+  X_train = np.load("path/to/train.npy", allow_pickle=True)
+  X_test  = np.load("path/to/test.npy",  allow_pickle=True)
+
+STEP 4 — Model train karo:
+  model.fit(X_train, y_train)
+
+STEP 5 — model.pkl save karo:
+  - Path: artifacts/<timestamp>/model_trainer/trained_model/model.pkl
+  - joblib ya pickle use karo
+
+STEP 6 — Metrics log karo:
+  - Accuracy, F1, Precision, Recall
+  - reports/metrics.json mein save karo
+  - MLflow mein bhi log karo agar use kar rahe ho
+
+OUTPUT: model.pkl
+
+
+----------------------------------------------------------------
+SOP-06 | src/components/model_evaluation.py
+----------------------------------------------------------------
+
+FILE: src/components/model_evaluation.py
+PRIORITY: 6
+REASON: NLP model ke saath evaluation same rahega mostly
+
+KYA CHECK KARO:
+  - Threshold sahi hai (spam detection mein 0.5 default)
+  - Metrics: F1-score sabse important (imbalanced data mein)
+  - Confusion matrix check karo — False Negatives kam hone chahiye
+
+KYA CHANGE KARO:
+  - Agar naya metric add karna ho (ROC-AUC, etc.)
+  - Agar model comparison logic change karna ho
+  - reports/metrics.json ka format change hua ho
+
+
+----------------------------------------------------------------
+SOP-07 | src/entity/config_entity.py
+----------------------------------------------------------------
+
+FILE: src/entity/config_entity.py
+PRIORITY: 7
+REASON: NLP ke naye paths / config fields define karne padenge
+
+KYA CHANGE KARO:
+  - DataTransformationConfig mein naye fields add karo agar koi
+    naya file save ho raha hai
+  - ModelTrainerConfig mein naye model params ka reference
+
+EXAMPLE:
+  @dataclass
+  class DataTransformationConfig:
+      transformed_train_file_path: str
+      transformed_test_file_path: str
+      transformed_object_file_path: str   # preprocessing.pkl path
+
+
+----------------------------------------------------------------
+SOP-08 | src/pipeline/training_pipeline.py
+----------------------------------------------------------------
+
+FILE: src/pipeline/training_pipeline.py
+PRIORITY: 8
+REASON: Saare components ek saath yahan chain hote hain
+
+KYA CHECK KARO:
+  - data_ingestion → data_validation → data_transformation →
+    model_trainer → model_evaluation → model_pusher
+  - Ek component ka output, dusre ka input ban raha hai
+  - Koi step skip toh nahi ho rahi
+
+KYA CHANGE KARO:
+  - Agar koi naya component add kiya ho
+  - Artifact paths sahi pass ho rahe hain
+
+
+----------------------------------------------------------------
+SOP-09 | flask_app/preprocessing_utility.py   ⚠️ MAT BHOOLNA
+----------------------------------------------------------------
+
+FILE: flask_app/preprocessing_utility.py
+PRIORITY: 9 (Production ke liye Critical)
+REASON: Prediction time pe same NLP preprocessing lagani padegi
+
+KYA KARNA HAI:
+
+STEP 1 — preprocessing.pkl load karo (vectorizer):
+  import joblib
+  vectorizer = joblib.load("path/to/preprocessing.pkl")
+
+STEP 2 — Same text cleaning function copy karo yahan bhi:
+  (data_transformation.py wali same cleaning lagani hai)
+  - Ek common utility file banao dono ke liye — DRY principle
+
+STEP 3 — Predict function:
+  def predict_email(raw_email_text):
+      cleaned = clean_text(raw_email_text)
+      features = vectorizer.transform([cleaned])
+      prediction = model.predict(features)
+      return prediction
+
+COMMON MISTAKE:
+  ❌ Training mein alag cleaning, prediction mein alag cleaning
+     → Model galat predictions karega!
+  ✅ Same cleaning function dono jagah use karo
+
+
+----------------------------------------------------------------
+SOP-10 | serving/api/app.py
+----------------------------------------------------------------
+
+FILE: serving/api/app.py
+PRIORITY: 10
+REASON: API endpoint sahi data format expect kare
+
+KYA CHECK KARO:
+  - /predict endpoint raw email text le raha hai
+  - preprocessing_utility call ho rahi hai
+  - Response format sahi hai (spam/not spam + confidence)
+
+KYA CHANGE KARO:
+  - Agar input/output schema badla ho
+  - Health check endpoint mein model version update karo
+
+
+----------------------------------------------------------------
+SOP-11 | infra/kubernetes/ & infra/docker/
+----------------------------------------------------------------
+
+FILES: Dockerfile.serve, deployment.yaml
+PRIORITY: 11 (Baad mein)
+REASON: Naye dependencies add hue honge NLP ke liye
+
+KYA CHECK KARO:
+  - Dockerfile mein requirements install ho rahe hain
+  - requirements.txt mein NLP libraries hain:
+      scikit-learn
+      nltk (agar use kiya)
+      beautifulsoup4 (agar HTML cleaning ki)
+      joblib
+  - kubernetes/deployment.yaml mein resource limits sahi hain
+    (NLP models thode heavy hote hain)
+
+
+----------------------------------------------------------------
+SOP-12 | monitoring/ (drift_detection)
+----------------------------------------------------------------
+
+FILES: monitoring/data_drift.py, monitoring/model_performance.py
+PRIORITY: 12 (Optional but Important)
+REASON: NLP features ka drift alag hota hai numerical se
+
+KYA CHECK KARO:
+  - Text feature drift detect ho raha hai ya nahi
+  - Vocabulary drift (naye words aana) handle hota hai
+  - infra/kubernetes/monitoring/drift-cronjob.yaml schedule sahi hai
+
+
+================================================================
+QUICK REFERENCE — CHANGE ORDER SUMMARY
+================================================================
+
+  1.  params.yaml                          ← Hyperparams define karo
+  2.  config/schema.yaml                   ← Schema confirm karo
+  3.  data_ingestion.py                    ← Mostly same (check only)
+  4.  data_transformation.py    ⭐          ← NLP pipeline — BIG CHANGE
+  5.  model_trainer.py                     ← Naya model plug in
+  6.  model_evaluation.py                  ← Metrics check/update
+  7.  config_entity.py                     ← Naye paths/fields
+  8.  training_pipeline.py                 ← Flow verify karo
+  9.  preprocessing_utility.py  ⚠️          ← Same NLP in prediction
+  10. serving/api/app.py                   ← API endpoint check
+  11. Dockerfile + requirements.txt        ← Naye dependencies
+  12. monitoring/                          ← Drift detection update
+
+================================================================
+TESTING CHECKLIST — HAR CHANGE KE BAAD
+================================================================
+
+  [ ] params.yaml load hota hai bina error ke
+  [ ] data_transformation.py akele run hota hai
+  [ ] preprocessing.pkl save aur load hota hai
+  [ ] train.npy aur test.npy shapes sahi hain
+  [ ] model_trainer.py akele run hota hai
+  [ ] model.pkl save aur load hota hai
+  [ ] demo.py se end-to-end prediction karti hai
+  [ ] Flask app local pe sahi predict karta hai
+  [ ] Same email ke liye training aur API same result de
+
+================================================================
+NOTE: Agar BERT / Transformer use kiya hai toh alag
+      SOP chahiye — batao to likhta hoon alag se.
+================================================================

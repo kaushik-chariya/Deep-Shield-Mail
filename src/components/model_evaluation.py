@@ -1,18 +1,32 @@
-import numpy as np
-import glob
-import pickle
-import json
+# ═══════════════════════════════════════════════════════════════
+# Model Evaluation
+# ═══════════════════════════════════════════════════════════════
+
 import os
 import sys
+import glob
+import json
+import pickle
 
+import numpy as np
 import mlflow
-import mlflow.xgboost
+import mlflow.sklearn
 from mlflow.tracking import MlflowClient
-from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_auc_score
+from sklearn.metrics import (
+    accuracy_score,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 
-from src.utils.logger import logger
+from constants import (
+    MODEL_EVALUATION_EXPERIMENT_NAME,
+    MODEL_EVALUATION_MODEL_NAME,
+    MODEL_PUSHER_ALIAS,
+)
+from src.utils.logger    import logger
 from src.utils.exception import MyException
-from constants import MODEL_EVALUATION_EXPERIMENT_NAME, MODEL_EVALUATION_MODEL_NAME
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -21,140 +35,216 @@ warnings.filterwarnings("ignore")
 class ModelEvaluation:
 
     def __init__(self):
-        dagshub_token = os.getenv("CAPSTONE_TEST")
-        if not dagshub_token:
-            raise EnvironmentError("CAPSTONE_TEST environment variable is not set")
-
-        os.environ["MLFLOW_TRACKING_USERNAME"] = "kaushik-chariya"
-        os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
-
-        import dagshub
-        dagshub.init(
-            repo_owner = "kaushik-chariya",
-            repo_name  = "Deep-Shield-Mail",
-            mlflow     = True
-        )
-
-    def _get_latest_model_path(self, base_dir: str = './artifact') -> str:
-        model_files = glob.glob(f'{base_dir}/**/model.pkl', recursive=True)
-        if not model_files:
-            raise FileNotFoundError(f"No model.pkl found inside '{base_dir}'")
-        latest = max(model_files, key=os.path.getmtime)
-        logger.info(f'Latest model found at: {latest}')
-        return latest
-
-    def _get_latest_test_data_path(self, base_dir: str = './artifact') -> str:
-        test_files = glob.glob(f'{base_dir}/**/test.npy', recursive=True)
-        if not test_files:
-            raise FileNotFoundError(f"No test.npy found inside '{base_dir}'")
-        latest = max(test_files, key=os.path.getmtime)
-        logger.info(f'Latest test data found at: {latest}')
-        return latest
-
-    def _load_model(self, file_path: str):
-        with open(file_path, 'rb') as f:
-            model = pickle.load(f)
-        logger.info(f'Model loaded from {file_path}')
-        return model
-
-    def _load_test_data(self, file_path: str) -> np.ndarray:
-        data = np.load(file_path)
-        logger.info(f'Test data loaded | Shape: {data.shape}')
-        return data
-
-    def _evaluate(self, clf, X_test, y_test) -> dict:
-        y_pred       = clf.predict(X_test)
-        y_pred_proba = clf.predict_proba(X_test)[:, 1]
-        return {
-            'accuracy' : accuracy_score(y_test, y_pred),
-            'precision': precision_score(y_test, y_pred),
-            'recall'   : recall_score(y_test, y_pred),
-            'auc'      : roc_auc_score(y_test, y_pred_proba)
-        }
-
-    def _get_best_staging_accuracy(self, model_name: str) -> float:
         try:
-            client = MlflowClient()
-            staging_version = client.get_model_version_by_alias(model_name, "staging")
-            prev_run = client.get_run(staging_version.run_id)
-            best_acc = prev_run.data.metrics.get("accuracy", 0.0)
-            logger.info(f"📊 Previous staging accuracy: {best_acc:.4f}")
-            return best_acc
-        except Exception:
-            logger.info("📊 No staging model found — pehli baar push hoga")
-            return 0.0
-
-    def initiate_model_evaluation(self) -> dict:
-        try:
-            logger.info("=" * 60)
-            logger.info("Model Evaluation: STARTED")
-            logger.info("=" * 60)
-
-            # ✅ Constants se lo — hardcoded nahi
-            model_name = MODEL_EVALUATION_MODEL_NAME
-            mlflow.set_experiment(MODEL_EVALUATION_EXPERIMENT_NAME)
-
-            with mlflow.start_run() as run:
-
-                model_path = self._get_latest_model_path('./artifact')
-                clf        = self._load_model(model_path)
-
-                test_data_path = self._get_latest_test_data_path('./artifact')
-                test_arr       = self._load_test_data(test_data_path)
-                X_test = test_arr[:, :-1]
-                y_test = test_arr[:, -1]
-
-                logger.info(f"X_test: {X_test.shape} | y_test: {y_test.shape}")
-
-                metrics = self._evaluate(clf, X_test, y_test)
-
-                logger.info(f"Accuracy : {metrics['accuracy']:.4f}  🏆")
-                logger.info(f"Precision: {metrics['precision']:.4f} 🏆")
-                logger.info(f"Recall   : {metrics['recall']:.4f}   🏆")
-                logger.info(f"AUC      : {metrics['auc']:.4f}      🏆")
-
-                os.makedirs('reports', exist_ok=True)
-                with open('reports/metrics.json', 'w') as f:
-                    json.dump(metrics, f, indent=4)
-                logger.info("Metrics saved to reports/metrics.json")
-
-                for k, v in metrics.items():
-                    mlflow.log_metric(k, v)
-
-                if hasattr(clf, 'get_params'):
-                    for k, v in clf.get_params().items():
-                        mlflow.log_param(k, v)
-
-                mlflow.xgboost.log_model(artifact_path="model",
-                    xgb_model     = clf,
+            dagshub_token = os.getenv("CAPSTONE_TEST")
+            if not dagshub_token:
+                raise EnvironmentError(
+                    "CAPSTONE_TEST environment variable is not set."
                 )
-                logger.info("Model logged to MLflow under artifact_path='model'")
 
-                mlflow.log_artifact('reports/metrics.json')
+            os.environ["MLFLOW_TRACKING_USERNAME"] = "kaushik-chariya"
+            os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
 
-                best_accuracy = self._get_best_staging_accuracy(model_name)
-                should_push   = metrics['accuracy'] > best_accuracy
-
-                if should_push:
-                    logger.info(f"✅ New model better hai ({metrics['accuracy']:.4f} > {best_accuracy:.4f}) — PUSH hoga 🚀")
-                else:
-                    logger.info(f"⏭️ New model better nahi ({metrics['accuracy']:.4f} <= {best_accuracy:.4f}) — SKIP")
-
-                model_info = {
-                    'run_id'    : run.info.run_id,
-                    'model_path': 'model',
-                    'push_model': should_push
-                }
-                with open('reports/experiment_info.json', 'w') as f:
-                    json.dump(model_info, f, indent=4)
-
-                logger.info("Model Evaluation: COMPLETED 👑")
-                return model_info
+            import dagshub
+            dagshub.init(
+                repo_owner="kaushik-chariya",
+                repo_name ="Deep-Shield-Mail",
+                mlflow    =True,
+            )
+            logger.info("✅ ModelEvaluation: DagsHub + MLflow initialized")
 
         except Exception as e:
             raise MyException(e, sys)
 
+    # ── Private helpers ─────────────────────────────────────────
 
-if __name__ == '__main__':
-    model_evaluation = ModelEvaluation()
-    model_evaluation.initiate_model_evaluation()
+    def _get_latest_file(self, base_dir: str, pattern: str) -> str:
+        """Glob karo aur latest modified file return karo."""
+        files = glob.glob(f"{base_dir}/**/{pattern}", recursive=True)
+        if not files:
+            raise FileNotFoundError(
+                f"No '{pattern}' found inside '{base_dir}'"
+            )
+        latest = max(files, key=os.path.getmtime)
+        logger.info("📂 Latest '%s' found at: %s", pattern, latest)
+        return latest
+
+    def _load_model(self, file_path: str):
+        with open(file_path, "rb") as f:
+            model = pickle.load(f)
+        logger.info("📦 Model (clf) loaded from: %s", file_path)
+        return model
+
+    def _load_transformers(self, file_path: str) -> dict:
+        with open(file_path, "rb") as f:
+            transformers = pickle.load(f)
+        logger.info("🔧 Transformers loaded from: %s", file_path)
+        return transformers
+
+    def _load_test_data(self, file_path: str) -> np.ndarray:
+        data = np.load(file_path)
+        logger.info("📊 Test data loaded — shape: %s", data.shape)
+        return data
+
+    def _evaluate(
+        self,
+        clf    : object,
+        X_test : np.ndarray,
+        y_test : np.ndarray,
+    ) -> dict:
+        y_pred       = clf.predict(X_test)
+        y_pred_proba = clf.predict_proba(X_test)[:, 1]
+        return {
+            "accuracy" : round(accuracy_score( y_test, y_pred),       4),
+            "f1"       : round(f1_score(       y_test, y_pred),       4),
+            "precision": round(precision_score(y_test, y_pred),       4),
+            "recall"   : round(recall_score(   y_test, y_pred),       4),
+            "auc"      : round(roc_auc_score(  y_test, y_pred_proba), 4),
+        }
+
+    def _get_champion_accuracy(self, model_name: str) -> float:
+        """
+        MLflow registry se current champion model ki accuracy fetch karo.
+        Returns 0.0 agar koi champion nahi mila (pehli baar).
+        """
+        try:
+            client           = MlflowClient()
+            champion_version = client.get_model_version_by_alias(
+                name =model_name,
+                alias=MODEL_PUSHER_ALIAS,
+            )
+            prev_run = client.get_run(champion_version.run_id)
+            best_acc = prev_run.data.metrics.get("accuracy", 0.0)
+            logger.info(
+                "🏆 Champion (alias='%s') accuracy: %.4f",
+                MODEL_PUSHER_ALIAS, best_acc,
+            )
+            return best_acc
+
+        except Exception:
+            logger.info(
+                "⚠️  Koi champion nahi mila (alias='%s') — "
+                "pehli baar hai, push hoga",
+                MODEL_PUSHER_ALIAS,
+            )
+            return 0.0
+
+    # ── Main ────────────────────────────────────────────────────
+
+    def initiate_model_evaluation(self) -> dict:
+        try:
+            logger.info("=" * 60)
+            logger.info("🚀 Model Evaluation: STARTED")
+            logger.info("=" * 60)
+
+            mlflow.set_experiment(MODEL_EVALUATION_EXPERIMENT_NAME)
+
+            with mlflow.start_run() as run:
+
+                # ── Step 1: Load artifacts ─────────────────────
+                model_path       = self._get_latest_file("./artifact", "model.pkl")
+                transformers_path= self._get_latest_file("./artifact", "transformers.pkl")
+                test_data_path   = self._get_latest_file("./artifact", "test.npy")
+
+                clf          = self._load_model(model_path)
+                transformers = self._load_transformers(transformers_path)
+                test_arr     = self._load_test_data(test_data_path)
+
+                X_test = test_arr[:, :-1]
+                y_test = test_arr[:, -1]
+                logger.info("📐 X_test=%s | y_test=%s", X_test.shape, y_test.shape)
+
+                # ── Step 2: Evaluate ───────────────────────────
+                metrics = self._evaluate(clf, X_test, y_test)
+                logger.info("📈 Accuracy  : %.4f", metrics["accuracy"])
+                logger.info("📈 F1        : %.4f", metrics["f1"])
+                logger.info("📈 Precision : %.4f", metrics["precision"])
+                logger.info("📈 Recall    : %.4f", metrics["recall"])
+                logger.info("📈 AUC       : %.4f", metrics["auc"])
+
+                # ── Step 3: Log metrics ────────────────────────
+                for k, v in metrics.items():
+                    mlflow.log_metric(k, v)
+
+                # ── Step 4: Log params ─────────────────────────
+                if hasattr(clf, "get_params"):
+                    for k, v in clf.get_params().items():
+                        mlflow.log_param(k, v)
+
+                # ── Step 5: Log model (clf only — sklearn) ─────
+                mlflow.sklearn.log_model(
+                    sk_model     =clf,
+                    name ="model",
+                )
+                logger.info("✅ clf logged to MLflow (artifact_path='model')")
+
+                # ── Step 6: Log transformers.pkl (FIX) ─────────
+                # Transformers ko MLflow artifact mein save karo
+                # Prediction ke waqt raw email → preprocess → predict
+                mlflow.log_artifact(
+                    local_path   =transformers_path,
+                    artifact_path ="transformers",   # MLflow run ke andar folder
+                )
+                logger.info(
+                    "✅ transformers.pkl logged to MLflow "
+                    "(artifact_path='transformers/transformers.pkl')"
+                )
+
+                # ── Step 7: Save metrics report ────────────────
+                os.makedirs("reports", exist_ok=True)
+                with open("reports/metrics.json", "w") as f:
+                    json.dump(metrics, f, indent=4)
+                mlflow.log_artifact("reports/metrics.json")
+                logger.info("💾 Metrics saved → reports/metrics.json")
+
+                # ── Step 8: Compare with champion ─────────────
+                best_accuracy = self._get_champion_accuracy(MODEL_EVALUATION_MODEL_NAME)
+                new_accuracy  = metrics["accuracy"]
+                should_push   = new_accuracy > best_accuracy
+
+                if should_push:
+                    logger.info(
+                        "🚀 New model BETTER (%.4f > %.4f) — PUSH hoga",
+                        new_accuracy, best_accuracy,
+                    )
+                else:
+                    logger.info(
+                        "⏭️  New model NOT better (%.4f <= %.4f) — SKIP",
+                        new_accuracy, best_accuracy,
+                    )
+
+                # ── Step 9: Save experiment_info.json ─────────
+                model_info = {
+                    "run_id"            : run.info.run_id,
+                    "model_path"        : "model",
+                    "transformers_path" : "transformers/transformers.pkl",
+                    "push_model"        : should_push,
+                    "new_score"         : new_accuracy,
+                    "best_score"        : best_accuracy,
+                }
+                with open("reports/experiment_info.json", "w") as f:
+                    json.dump(model_info, f, indent=4)
+                logger.info(
+                    "💾 Experiment info saved → reports/experiment_info.json"
+                )
+
+                logger.info("=" * 60)
+                logger.info("✅ Model Evaluation: COMPLETED SUCCESSFULLY")
+                logger.info("=" * 60)
+
+                return model_info
+
+        except Exception as e:
+            logger.error(
+                "❌ Model Evaluation: FAILED — %s", str(e), exc_info=True
+            )
+            raise MyException(e, sys)
+
+
+# ───────────────────────────────────────────────────────────────
+# Standalone run
+# ───────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    evaluator = ModelEvaluation()
+    evaluator.initiate_model_evaluation()

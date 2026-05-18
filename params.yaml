@@ -15,24 +15,41 @@ data_validation:
 
 data_transformation:
   vectorizer: "TF-IDF"
+  tfidf:
+    max_features: 30000
+    ngram_range: [1, 2]
+    sublinear_tf: true
+    analyzer: "word"
+    stop_words: "english"
+    min_df: 3
+    max_df: 0.90
+    strip_accents: "unicode"
+
+  hand_crafted_features:
+    - caps_ratio
+    - exclamation_count
+    - url_count
+    - dollar_count
+    - html_flag
+    - word_count
+    - avg_word_length
+    - digit_ratio
+    - unique_word_ratio
 
 model_trainer:
-  xgboost:
-    n_estimators: 200
-    max_depth: 6
-    learning_rate: 0.1
-    subsample: 0.8
-    colsample_bytree: 0.8
-    eval_metric: "logloss"
-    random_state: 42
+  naive_bayes:
+    alpha: 0.1        # GridSearchCV se best mila tha notebook mein
+    fit_prior: true
 
   cross_validation:
     n_splits: 5
     shuffle: true
     random_state: 42
 
+  random_state: 42
+
 model_evaluation:
-  experiment_name: "Spam-Detection-XGBoost-v1"
+  experiment_name: "Spam-Detection-NaiveBayes-v1"
   model_name: "Deep-Shield-Spam-Detector"
 
 model_pusher:

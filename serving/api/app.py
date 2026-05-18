@@ -1,127 +1,119 @@
+# ═══════════════════════════════════════════════════════════════
+# app.py  —  Deep-Shield-Mail  |  Flask Serving App
+# ═══════════════════════════════════════════════════════════════
+
 import os
 import sys
-import time
-import warnings
-warnings.filterwarnings("ignore")
+from flask import Flask, request, jsonify, render_template
 
-from flask import Flask, render_template, request, jsonify
-from prometheus_client import Counter, Histogram, generate_latest, CollectorRegistry, CONTENT_TYPE_LATEST
+from src.utils.logger    import logger
+from src.utils.exception import MyException
 
-from src.pipeline.prediction_pipeline import PredictionPipeline
-from src.utils.logger import logger
+# ── Lazy-load prediction pipeline (loaded once on first request) ──
+_pipeline = None
 
-# ── Flask App ─────────────────────────────────────────────────
-app = Flask(__name__, template_folder="../../templates", static_folder="../../static")
-
-# ── Prometheus Metrics ────────────────────────────────────────
-registry = CollectorRegistry()
-
-REQUEST_COUNT = Counter(
-    "app_request_count",
-    "Total number of requests to the app",
-    ["method", "endpoint"],
-    registry=registry
-)
-
-REQUEST_LATENCY = Histogram(
-    "app_request_latency_seconds",
-    "Latency of requests in seconds",
-    ["endpoint"],
-    registry=registry
-)
-
-PREDICTION_COUNT = Counter(
-    "model_prediction_count",
-    "Count of predictions for each class",
-    ["prediction"],
-    registry=registry
-)
-
-# ── Load Pipeline once at startup ─────────────────────────────
-logger.info("Loading PredictionPipeline...")
-pipeline = PredictionPipeline()
-logger.info("✅ PredictionPipeline loaded successfully!")
+def get_pipeline():
+    global _pipeline
+    if _pipeline is None:
+        from src.pipeline.prediction_pipeline import PredictionPipeline
+        logger.info("🔄 Loading PredictionPipeline …")
+        _pipeline = PredictionPipeline()
+        logger.info("✅ PredictionPipeline ready")
+    return _pipeline
 
 
-# ── Routes ────────────────────────────────────────────────────
+# ── Flask app ─────────────────────────────────────────────────────
+app = Flask(__name__)
 
-@app.route("/")
-def home():
-    REQUEST_COUNT.labels(method="GET", endpoint="/").inc()
-    start_time = time.time()
 
-    response = render_template("index.html", result=None)
+# ═══════════════════════════════════════════════════════════════
+# Routes
+# ═══════════════════════════════════════════════════════════════
 
-    REQUEST_LATENCY.labels(endpoint="/").observe(time.time() - start_time)
-    return response
+@app.route("/", methods=["GET"])
+def index():
+    """Serve the main UI."""
+    return render_template("index.html")
 
 
 @app.route("/predict", methods=["POST"])
 def predict():
-    REQUEST_COUNT.labels(method="POST", endpoint="/predict").inc()
-    start_time = time.time()
+    """
+    POST  /predict
+    Body (JSON):  { "email": "<raw email text>" }
 
+    Response:
+    {
+        "label"      : "Spam" | "Not Spam",
+        "prediction" : 1      | 0,
+        "probability": float
+    }
+    """
     try:
-        text = request.form.get("text", "").strip()
+        data = request.get_json(force=True, silent=True) or {}
+        email_text = data.get("email", "").strip()
 
-        if not text:
-            return render_template("index.html", result="error", message="Email text cannot be empty!")
+        if not email_text:
+            return jsonify({"error": "Email text is required."}), 400
 
-        # ── Predict ───────────────────────────────────────────
-        result = pipeline.predict(text)
+        pipeline = get_pipeline()
+        result   = pipeline.predict(email_text)
 
-        # ── Track prediction in Prometheus ────────────────────
-        PREDICTION_COUNT.labels(prediction=result["label"]).inc()
-
-        REQUEST_LATENCY.labels(endpoint="/predict").observe(time.time() - start_time)
-
-        return render_template(
-            "index.html",
-            result=result["label"],            # "Spam" or "Not Spam"
-            probability=result["probability"],  # 0.9906
-            prediction=result["prediction"],    # 0 or 1
-        )
-
-    except Exception as e:
-        logger.error(f"Prediction failed: {e}")
-        return render_template("index.html", result="error", message=str(e))
-
-
-@app.route("/predict_api", methods=["POST"])
-def predict_api():
-    """JSON API endpoint — Postman/curl ke liye"""
-    REQUEST_COUNT.labels(method="POST", endpoint="/predict_api").inc()
-    start_time = time.time()
-
-    try:
-        data = request.get_json()
-        text = data.get("text", "").strip()
-
-        if not text:
-            return jsonify({"error": "Email text cannot be empty!"}), 400
-
-        result = pipeline.predict(text)
-
-        PREDICTION_COUNT.labels(prediction=result["label"]).inc()
-        REQUEST_LATENCY.labels(endpoint="/predict_api").observe(time.time() - start_time)
-
+        logger.info("📨 /predict → %s  (prob=%.4f)", result["label"], result["probability"])
         return jsonify(result), 200
 
-    except Exception as e:
-        logger.error(f"API Prediction failed: {e}")
+    except MyException as e:
+        logger.error("MyException in /predict: %s", str(e))
         return jsonify({"error": str(e)}), 500
 
+    except Exception as e:
+        logger.error("Unexpected error in /predict: %s", str(e))
+        return jsonify({"error": "Internal server error."}), 500
 
-@app.route("/metrics", methods=["GET"])
-def metrics():
-    """Prometheus metrics endpoint"""
-    return generate_latest(registry), 200, {"Content-Type": CONTENT_TYPE_LATEST}
+
+@app.route("/train", methods=["GET", "POST"])
+def train():
+    """
+    Trigger the full training pipeline.
+    GET  /train  →  starts training and returns status.
+    """
+    try:
+        from src.pipeline.training_pipeline import TrainingPipeline
+
+        logger.info("🏋️  Training pipeline triggered via /train endpoint")
+        pipeline = TrainingPipeline()
+        pipeline.run_pipeline()
+
+        # Reset cached prediction pipeline so it picks up new model
+        global _pipeline
+        _pipeline = None
+
+        logger.info("✅ Training complete")
+        return jsonify({"status": "success", "message": "Training completed successfully."}), 200
+
+    except MyException as e:
+        logger.error("MyException in /train: %s", str(e))
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+    except Exception as e:
+        logger.error("Unexpected error in /train: %s", str(e))
+        return jsonify({"status": "error", "message": "Training failed. Check logs."}), 500
 
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok"}), 200
+    """Basic health check endpoint."""
+    return jsonify({"status": "ok", "service": "Deep-Shield-Mail"}), 200
 
- 
+
+# ═══════════════════════════════════════════════════════════════
+# Entry Point
+# ═══════════════════════════════════════════════════════════════
+
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=8000)
+    HOST = os.getenv("FLASK_HOST", "0.0.0.0")
+    PORT = int(os.getenv("FLASK_PORT", 5000))
+    DEBUG = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+
+    logger.info("🚀 Starting Deep-Shield-Mail on %s:%s (debug=%s)", HOST, PORT, DEBUG)
+    app.run(host=HOST, port=PORT, debug=DEBUG)

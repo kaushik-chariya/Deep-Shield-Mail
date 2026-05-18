@@ -67,4 +67,4 @@ if __name__ == "__main__":
 
     except Exception as e:
         logger.error("💥 Demo pipeline: FAILED — %s", str(e), exc_info=True)
-        raise MyException(e, sys) 
+        raise MyException(e, sys)  

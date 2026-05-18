@@ -1,51 +1,72 @@
+# ═══════════════════════════════════════════════════════════════
+# Prediction Pipeline
+# ═══════════════════════════════════════════════════════════════
+
 import os
 import sys
 import glob
-import dill as pickle
-import re
 import numpy as np
 import pandas as pd
-from src.utils.logger import logger
+import pickle
 
 from scipy.sparse import hstack, csr_matrix
+
 from constants import SCHEMA_FILE_PATH
-from src.utils.logger    import logger
-from src.utils.exception import MyException
+from src.utils.logger     import logger
+from src.utils.exception  import MyException
 from src.utils.main_utils import read_yaml_file
-from src.components.data_transformation import EmailParser, EmailMetaFeatureExtractor, BodyFeatureExtractor
+from src.components.data_transformation import (
+    EmailParser,
+    EmailMetaFeatureExtractor,
+    BodyFeatureExtractor,
+    HAND_FEAT_COLS,                 # same list — single source of truth
+)
 
-DEFAULT_NUM_FEATURES = [
-    'same_domain', 'to_is_generic', 'is_weekend',
-    'has_link', 'num_exclaim', 'num_dollar', 'caps_ratio',
-    'num_question', 'has_free', 'has_win', 'has_urgent',
-    'body_len', 'num_links', 'num_digits', 'is_odd_hour'
-]
+import warnings
+warnings.filterwarnings("ignore")
 
-def get_latest_model_path(base_dir: str = './artifact') -> str:
-    model_files = glob.glob(f'{base_dir}/**/model.pkl', recursive=True)
-    if not model_files:
-        raise FileNotFoundError(f"No model.pkl found inside '{base_dir}' directory")
-    latest = max(model_files, key=os.path.getmtime)
-    logger.info(f'Latest model found at: {latest}')
+
+# ───────────────────────────────────────────────────────────────
+# Constants — training ke saath match karo
+# ───────────────────────────────────────────────────────────────
+
+# Yeh wahi columns hain jo data_transformation.py mein drop hote hain
+_DROP_HIGH_CARDINALITY = ["from_email", "to_domain"]
+
+
+# ───────────────────────────────────────────────────────────────
+# File helpers
+# ───────────────────────────────────────────────────────────────
+
+def _get_latest(base_dir: str, pattern: str) -> str:
+    files = glob.glob(f"{base_dir}/**/{pattern}", recursive=True)
+    if not files:
+        raise FileNotFoundError(f"No '{pattern}' found inside '{base_dir}'")
+    latest = max(files, key=os.path.getmtime)
+    logger.info("📂 Latest '%s' → %s", pattern, latest)
     return latest
 
-def get_latest_preprocessor_path(base_dir: str = './artifact') -> str:
-    preprocessor_files = glob.glob(f'{base_dir}/**/preprocessing.pkl', recursive=True)
-    if not preprocessor_files:
-        raise FileNotFoundError(f"No preprocessing.pkl found inside '{base_dir}' directory")
-    latest = max(preprocessor_files, key=os.path.getmtime)
-    logger.info(f'Latest preprocessor found at: {latest}')
-    return latest
+
+# ───────────────────────────────────────────────────────────────
+# Header injection helper
+# ───────────────────────────────────────────────────────────────
 
 def _inject_headers_if_missing(email_text: str) -> str:
+    """
+    Agar user sirf plain text paste kare (bina headers ke),
+    dummy headers inject karo taaki EmailParser sahi kaam kare.
+    """
     header_keywords = ("from:", "to:", "subject:", "date:", "message-id:", "mime-version:")
-    first_lines = email_text.strip().lower()[:200]
-    has_headers = any(first_lines.startswith(kw) or f"\n{kw}" in first_lines for kw in header_keywords)
+    preview         = email_text.strip().lower()[:200]
+    has_headers     = any(
+        preview.startswith(kw) or f"\n{kw}" in preview
+        for kw in header_keywords
+    )
     if not has_headers:
-        lines = [l.strip() for l in email_text.strip().split('\n') if l.strip()]
+        lines        = [l.strip() for l in email_text.strip().split("\n") if l.strip()]
         subject_line = lines[0][:100] if lines else "No Subject"
-        logger.info("No headers detected — injecting default headers for parsing")
-        injected = (
+        logger.info("⚠️  No headers detected — injecting dummy headers")
+        return (
             f"From: unknown@unknown.com\n"
             f"To: user@gmail.com\n"
             f"Subject: {subject_line}\n"
@@ -53,87 +74,181 @@ def _inject_headers_if_missing(email_text: str) -> str:
             f"\n"
             f"{email_text.strip()}"
         )
-        return injected
     return email_text
 
+
+# ───────────────────────────────────────────────────────────────
+# PredictionPipeline
+# ───────────────────────────────────────────────────────────────
+
 class PredictionPipeline:
+    """
+    Raw email text → Spam / Not Spam
+
+    Internally replicates the exact same steps as DataTransformation:
+        EmailParser → MetaFeatures → BodyFeatures
+        → drop columns
+        → TF-IDF (body) + MinMaxScaler (hand-crafted)
+        → hstack → MultinomialNB.predict
+    """
 
     def __init__(self):
         try:
-            model_path = get_latest_model_path('./artifact')
-            with open(model_path, 'rb') as f:
+            # ── Load clf ───────────────────────────────────────
+            model_path = _get_latest("./artifact", "model.pkl")
+            with open(model_path, "rb") as f:
                 self.model = pickle.load(f)
-            preprocessor_path = get_latest_preprocessor_path('./artifact')
-            with open(preprocessor_path, 'rb') as f:
+            logger.info("📦 clf loaded from: %s", model_path)
+
+            # ── Load transformers ──────────────────────────────
+            # Keys: body, scaler, email_parser,
+            #       meta_feature_extractor, body_feature_extractor
+            transformers_path = _get_latest("./artifact", "transformers.pkl")
+            with open(transformers_path, "rb") as f:
                 self.transformers = pickle.load(f)
+            logger.info("🔧 transformers loaded from: %s", transformers_path)
+
             self._schema_config = read_yaml_file(file_path=SCHEMA_FILE_PATH)
-            logger.info("PredictionPipeline initialized ✅")
+            logger.info("✅ PredictionPipeline initialized")
+
         except Exception as e:
             raise MyException(e, sys)
 
-    def _drop_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        drop_cols = self._schema_config.get('drop_columns', [])
-        existing  = [c for c in drop_cols if c in df.columns]
-        if existing:
-            df = df.drop(columns=existing)
-        return df
+    # ── Private ─────────────────────────────────────────────────
 
-    def _drop_high_cardinality_cols(self, df: pd.DataFrame) -> pd.DataFrame:
-        candidates = ['from_email', 'to_domain']
-        to_drop    = [c for c in candidates if c in df.columns]
-        return df.drop(columns=to_drop)
+    def _drop_schema_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        drop_cols = self._schema_config.get("drop_columns", [])
+        existing  = [c for c in drop_cols if c in df.columns]
+        return df.drop(columns=existing) if existing else df
+
+    def _drop_high_cardinality(self, df: pd.DataFrame) -> pd.DataFrame:
+        to_drop = [c for c in _DROP_HIGH_CARDINALITY if c in df.columns]
+        return df.drop(columns=to_drop) if to_drop else df
 
     def _build_feature_matrix(self, df: pd.DataFrame) -> csr_matrix:
-        num_col = self._schema_config.get('num_features', DEFAULT_NUM_FEATURES)
-        x_subject     = self.transformers["subject"].transform(df["subject"].fillna(''))
-        x_body        = self.transformers["body"].transform(df["body"].fillna(''))
-        x_from_domain = self.transformers["from_domain"].transform(df["from_domain"].fillna(''))
-        x_to_email    = self.transformers["to_email"].transform(df["to_email"].fillna(''))
-        x_day         = self.transformers["day"].transform(df[["day_of_week"]])
-        x_num   = csr_matrix(df[num_col].fillna(0).values.astype(np.float64))
-        X_final = hstack([x_subject, x_body, x_from_domain, x_to_email, x_day, x_num])
-        logger.info(f"Feature matrix shape: {X_final.shape}")
+        """
+        Exact mirror of DataTransformation._build_feature_matrix (transform mode):
+            1. preprocess_email → TF-IDF (body)
+            2. HAND_FEAT_COLS   → MinMaxScaler
+            3. hstack
+        """
+        # Step A: TF-IDF on cleaned body
+        clean_body = df["body"].fillna("").apply(EmailParser.preprocess_email)
+        x_body     = self.transformers["body"].transform(clean_body)
+        logger.info("TF-IDF shape: %s", x_body.shape)
+
+        # Step B: hand-crafted features → MinMaxScaler
+        missing = [c for c in HAND_FEAT_COLS if c not in df.columns]
+        if missing:
+            logger.warning("⚠️  Missing hand-crafted columns: %s — filling with 0", missing)
+            for col in missing:
+                df[col] = 0
+
+        x_hand        = df[HAND_FEAT_COLS].fillna(0).values.astype(np.float64)
+        x_hand_scaled = self.transformers["scaler"].transform(x_hand)
+        x_hand_sparse = csr_matrix(x_hand_scaled)
+        logger.info("Hand-crafted features shape: %s", x_hand_sparse.shape)
+
+        # Step C: combine
+        X_final = hstack([x_body, x_hand_sparse])
+        logger.info("Final feature matrix shape: %s", X_final.shape)
         return X_final
 
+    # ── Public API ───────────────────────────────────────────────
+
     def predict(self, email_text: str) -> dict:
+        """
+        Parameters
+        ----------
+        email_text : str
+            Raw email string (with or without headers).
+
+        Returns
+        -------
+        dict
+            {
+                "label"      : "Spam" | "Not Spam",
+                "prediction" : 1      | 0,
+                "probability": float    # spam probability 0-1
+            }
+        """
         try:
-            import pandas as pd
             logger.info("=" * 50)
-            logger.info("Prediction: STARTED")
+            logger.info("🔮 Prediction: STARTED")
+
+            # Step 1: Headers inject if needed
             email_text = _inject_headers_if_missing(email_text)
-            logger.info("[Step 1/5] Parsing email text")
-            parser  = self.transformers["email_parser"]
-            X       = parser.transform(pd.Series([email_text]))
-            logger.info("[Step 2/5] Extracting meta features")
-            meta_extractor = self.transformers["meta_feature_extractor"]
-            X = meta_extractor.transform(X)
-            logger.info("[Step 3/5] Extracting body features")
-            body_extractor = self.transformers["body_feature_extractor"]
-            X = body_extractor.transform(X)
-            logger.info("[Step 4/5] Dropping columns")
-            X = self._drop_columns(X)
-            X = self._drop_high_cardinality_cols(X)
-            logger.info("[Step 5/5] Building feature matrix & predicting")
-            X_final = self._build_feature_matrix(X)
+
+            # Step 2: EmailParser — from/subject/date/to/body extract
+            logger.info("[1/4] EmailParser")
+            X = self.transformers["email_parser"].transform(
+                pd.Series([email_text])
+            )
+
+            # Step 3: MetaFeatureExtractor — same_domain, is_weekend, to_is_generic
+            logger.info("[2/4] MetaFeatureExtractor")
+            X = self.transformers["meta_feature_extractor"].transform(X)
+
+            # Step 4: BodyFeatureExtractor — caps_ratio, url_count etc.
+            logger.info("[3/4] BodyFeatureExtractor")
+            X = self.transformers["body_feature_extractor"].transform(X)
+
+            # Step 5: Drop columns (same as training)
+            X = self._drop_schema_columns(X)
+            X = self._drop_high_cardinality(X)
+
+            # Step 6: TF-IDF + Scaler → hstack → predict
+            logger.info("[4/4] Building feature matrix & predicting")
+            X_final          = self._build_feature_matrix(X)
             prediction       = self.model.predict(X_final)
             prediction_proba = self.model.predict_proba(X_final)[:, 1]
+
             label       = "Spam" if prediction[0] == 1 else "Not Spam"
             probability = round(float(prediction_proba[0]), 4)
+
             result = {
                 "label"      : label,
                 "prediction" : int(prediction[0]),
-                "probability": probability
+                "probability": probability,
             }
-            logger.info(f"Prediction result: {result}")
-            logger.info("Prediction: COMPLETED ✅")
+            logger.info("✅ Prediction result: %s", result)
+            logger.info("=" * 50)
             return result
+
         except Exception as e:
             raise MyException(e, sys)
 
-if __name__ == '__main__':
-    sample_email = "Congratulations! You've won a $1000 gift card. Click here to claim now!"
+
+# ───────────────────────────────────────────────────────────────
+# Smoke test
+# ───────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+
     pipeline = PredictionPipeline()
-    result   = pipeline.predict(sample_email)
-    print(f"\n📧 Email      : {sample_email}")
-    print(f"🔍 Label      : {result['label']}")
-    print(f"📊 Probability: {result['probability']}")
+
+    test_cases = [
+        ("SPAM", "Congratulations! You've won a $1000 gift card. Click here to claim FREE prize NOW!"),
+        ("HAM",  "Hi John, please find the meeting notes attached. Let me know if you have questions."),
+        ("SPAM", "URGENT: Your bank account has been suspended. Verify your credit card details immediately."),
+        ("HAM",  "Hey, are we still on for lunch tomorrow? Let me know if the time works."),
+    ]
+
+    print("\n" + "=" * 60)
+    print("SMOKE TEST")
+    print("=" * 60)
+
+    passed = 0
+    for expected, email in test_cases:
+        result = pipeline.predict(email)
+        got    = "SPAM" if result["prediction"] == 1 else "HAM"
+        ok     = "✅" if got == expected else "❌"
+        if got == expected:
+            passed += 1
+        print(f"\n{ok} Expected: {expected:4s}  Got: {got:4s}  "
+              f"Prob: {result['probability']:.4f}")
+        print(f"   {email[:70]}...")
+
+    print(f"\n{'='*60}")
+    print(f"Result: {passed}/{len(test_cases)} passed")
+    print("=" * 60)

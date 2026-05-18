@@ -1,6 +1,6 @@
 columns:
-  text: category
-  target: int
+  text   : category
+  target : int
 
 numerical_columns:
   - target
@@ -8,26 +8,30 @@ numerical_columns:
 categorical_columns:
   - text
 
-
 drop_columns:
   - text
   - from
   - to
   - date
 
+# ── Hand-crafted features ──────────────────────────────────────
+# ⚠️  IMPORTANT: Yeh list constants.py ke HAND_FEAT_COLS se
+#     exactly match karni chahiye.
+#     BodyFeatureExtractor (body features) +
+#     EmailMetaFeatureExtractor (meta features) — dono ke columns.
+
 num_features:
-  - same_domain
-  - to_is_generic
-  - is_weekend
-  - has_link
-  - num_exclaim
-  - num_dollar
-  - caps_ratio
-  - num_question
-  - has_free
-  - has_win
-  - has_urgent
-  - body_len
-  - num_links
-  - num_digits
-  - is_odd_hour
+  # ── Body features (BodyFeatureExtractor) ──────────────────
+  - caps_ratio          # uppercase letters ka ratio
+  - exclamation_count   # '!' kitni baar
+  - url_count           # http/www links
+  - dollar_count        # '$' signs
+  - html_flag           # HTML tags present hain?
+  - word_count          # total words
+  - avg_word_length     # average word length
+  - digit_ratio         # digits ka ratio
+  - unique_word_ratio   # vocabulary richness
+  # ── Meta features (EmailMetaFeatureExtractor) ─────────────
+  - same_domain         # from aur to same domain?
+  - is_weekend          # Saturday/Sunday?
+  - to_is_generic       # noreply/admin type address?
