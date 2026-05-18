@@ -23,7 +23,7 @@ def get_pipeline():
 
 
 # ── Flask app ─────────────────────────────────────────────────────
-app = Flask(__name__)
+app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "templates"), static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "static"))
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -112,7 +112,7 @@ def health():
 
 if __name__ == "__main__":
     HOST = os.getenv("FLASK_HOST", "0.0.0.0")
-    PORT = int(os.getenv("FLASK_PORT", 5000))
+    PORT = int(os.getenv("FLASK_PORT", 8000))
     DEBUG = os.getenv("FLASK_DEBUG", "false").lower() == "true"
 
     logger.info("🚀 Starting Deep-Shield-Mail on %s:%s (debug=%s)", HOST, PORT, DEBUG)

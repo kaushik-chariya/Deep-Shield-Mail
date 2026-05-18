@@ -8,6 +8,8 @@ import glob
 import numpy as np
 import pandas as pd
 import pickle
+import re
+import dill
 
 from scipy.sparse import hstack, csr_matrix
 
@@ -105,7 +107,7 @@ class PredictionPipeline:
             #       meta_feature_extractor, body_feature_extractor
             transformers_path = _get_latest("./artifact", "transformers.pkl")
             with open(transformers_path, "rb") as f:
-                self.transformers = pickle.load(f)
+                self.transformers = dill.load(f)
             logger.info("🔧 transformers loaded from: %s", transformers_path)
 
             self._schema_config = read_yaml_file(file_path=SCHEMA_FILE_PATH)
