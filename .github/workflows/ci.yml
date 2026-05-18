@@ -33,6 +33,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
+          pip install dvc dvc-s3
 
       - name: Run DVC pipeline
         env:
