@@ -48,6 +48,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
+          pip install -e .
           pip install dvc dvc-s3
 
       - name: Setup PostgreSQL data
@@ -75,7 +76,7 @@ jobs:
         run: |
           dvc repro
 
-      - name: Health check Flask app
+      - name: spam check Flask app
         env:
           CAPSTONE_TEST: ${{ secrets.CAPSTONE_TEST }}
           POSTGRES_HOST: localhost
