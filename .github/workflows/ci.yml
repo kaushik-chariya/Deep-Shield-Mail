@@ -64,7 +64,7 @@ jobs:
 
       - name: Run DVC pipeline
         env:
-          CAPSTONE_TEST: ${{ secrets.CAPSTONE_TEST }}
+          DEEPSHIELD_TEST: ${{ secrets.DEEPSHIELD_TEST }}
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
@@ -78,7 +78,7 @@ jobs:
 
       - name: spam check Flask app
         env:
-          CAPSTONE_TEST: ${{ secrets.CAPSTONE_TEST }}
+          DEEPSHIELD_TEST: ${{ secrets.DEEPSHIELD_TEST }}
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}

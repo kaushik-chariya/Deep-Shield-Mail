@@ -37,10 +37,10 @@ class ModelEvaluation:
 
     def __init__(self):
         try:
-            dagshub_token = os.getenv("CAPSTONE_TEST")
+            dagshub_token = os.getenv("DEEPSHIELD_TEST")
             if not dagshub_token:
                 raise EnvironmentError(
-                    "CAPSTONE_TEST environment variable is not set."
+                    "DEEPSHIELD_TEST environment variable is not set."
                 )
 
             os.environ["MLFLOW_TRACKING_USERNAME"] = "kaushik-chariya"
