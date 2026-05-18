@@ -3,10 +3,13 @@
 # ─────────────────────────────────────────────
 import numpy as np
 import pandas as pd
-pd.set_option('future.no_silent_downcasting', True)
+try:
+    pd.set_option('future.no_silent_downcasting', True)
+except Exception:
+    pass
 
 import os
-import concurrent.futures                          # ✅ run both sources in parallel
+import concurrent.futures
 from sklearn.model_selection import train_test_split
 import yaml
 import logging
@@ -20,10 +23,6 @@ import os
 load_dotenv()
 
 
-
-# ─────────────────────────────────────────────
-# Load .env file
-# ─────────────────────────────────────────────
 
 # ─────────────────────────────────────────────
 # Load Params from YAML
@@ -52,18 +51,15 @@ def load_params(params_path: str) -> dict:
 def load_data_from_postgres(pg_config: dict) -> pd.DataFrame:
     """Load data from PostgreSQL — credentials from .env"""
     try:
-        # ── Credentials from .env ──────────────────────────────────
         host     = os.getenv("POSTGRES_HOST")
         port     = os.getenv("POSTGRES_PORT", "5432")
         database = os.getenv("POSTGRES_DB")
         user     = os.getenv("POSTGRES_USER")
         password = os.getenv("POSTGRES_PASSWORD")
 
-        # ── Non-sensitive config from params.yaml ──────────────────
         table = pg_config['table']
         query = pg_config.get('query', f"SELECT * FROM {table}")
 
-        # ── Validate env vars ───────────────────────────────────────
         missing = [
             k for k, v in {
                 "POSTGRES_HOST"    : host,
@@ -77,7 +73,6 @@ def load_data_from_postgres(pg_config: dict) -> pd.DataFrame:
                 f"Missing required environment variables: {missing}"
             )
 
-        # ── Connect and fetch ───────────────────────────────────────
         connection_string = (
             f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}"
         )
@@ -111,26 +106,12 @@ def load_data_from_postgres(pg_config: dict) -> pd.DataFrame:
 def load_data_from_s3(s3_config: dict) -> pd.DataFrame:
     """Load CSV from S3 — credentials from .env"""
     try:
-        # ── Credentials from .env ──────────────────────────────────
         access_key = os.getenv("AWS_ACCESS_KEY")
         secret_key = os.getenv("AWS_SECRET_KEY")
         region     = os.getenv("AWS_REGION")
 
-        # ── Non-sensitive config from params.yaml ──────────────────
         bucket_name = s3_config['bucket_name']
         file_key    = s3_config['file_key']
-
-        # ── Validate env vars ───────────────────────────────────────
-        # missing = [
-        #     k for k, v in {
-        #         "AWS_ACCESS_KEY_ID"    : access_key,
-        #         "AWS_SECRET_ACCESS_KEY": secret_key,
-        #     }.items() if not v
-        # ]
-        # if missing:
-        #     raise EnvironmentError(
-        #         f"Missing required environment variables: {missing}"
-        #     )
 
         logging.info(
             "Connecting to S3 bucket '%s' in region '%s'",
@@ -154,7 +135,7 @@ def load_data_from_s3(s3_config: dict) -> pd.DataFrame:
 
 
 # ─────────────────────────────────────────────
-# ✅ NEW: Load from BOTH simultaneously
+# Load from BOTH simultaneously
 # ─────────────────────────────────────────────
 def load_data_from_both(pg_config: dict, s3_config: dict) -> pd.DataFrame:
     """
@@ -163,26 +144,21 @@ def load_data_from_both(pg_config: dict, s3_config: dict) -> pd.DataFrame:
     """
     logging.info("🚀 Fetching from PostgreSQL and S3 simultaneously...")
 
-    # ── Run both loaders in parallel threads ───────────────────────
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
         future_pg = executor.submit(load_data_from_postgres, pg_config)
         future_s3 = executor.submit(load_data_from_s3, s3_config)
 
-        # ── Collect results (raises exception if either failed) ─────
         df_pg = future_pg.result()
         df_s3 = future_s3.result()
 
     logging.info("PostgreSQL rows : %d", len(df_pg))
     logging.info("S3 rows         : %d", len(df_s3))
 
-    # ── Tag source so you know where each row came from ────────────
     df_pg['_source'] = 'postgres'
     df_s3['_source'] = 's3'
 
-    # ── Combine both DataFrames ─────────────────────────────────────
     df_combined = pd.concat([df_pg, df_s3], ignore_index=True)
 
-    # ── Drop exact duplicates (same email in both sources) ─────────
     before = len(df_combined)
     df_combined = df_combined.drop_duplicates(
         subset=[c for c in df_combined.columns if c != '_source']
