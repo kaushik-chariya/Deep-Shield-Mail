@@ -50,6 +50,17 @@ jobs:
           pip install -r requirements.txt
           pip install dvc dvc-s3
 
+      - name: Setup PostgreSQL data
+        env:
+          PGPASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        run: |
+          psql -h localhost -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }} -c "
+          CREATE TABLE IF NOT EXISTS emails (
+            text TEXT,
+            target INTEGER
+          );"
+          psql -h localhost -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }} -c "\COPY emails FROM 'data/emails.csv' CSV HEADER;"
+
       - name: Run DVC pipeline
         env:
           CAPSTONE_TEST: ${{ secrets.CAPSTONE_TEST }}
