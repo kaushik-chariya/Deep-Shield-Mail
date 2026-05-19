@@ -1,18 +1,24 @@
 import unittest
 import os
 import sys
-import pickle
 import dill
 import mlflow
 import mlflow.pyfunc
 import numpy as np
 import pandas as pd
 
+from scipy.sparse import hstack, csr_matrix
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from constants import (
     MODEL_EVALUATION_MODEL_NAME,
     MODEL_PUSHER_ALIAS,
+)
+
+from src.components.data_transformation import (
+    EmailParser,
+    HAND_FEAT_COLS,
 )
 
 
@@ -32,144 +38,147 @@ class TestModel(unittest.TestCase):
                 "DEEPSHIELD_TEST environment variable not set"
             )
 
+        # Credentials ko env mein set karo PEHLE tracking URI set karne se
         os.environ["MLFLOW_TRACKING_USERNAME"] = "kaushik-chariya"
         os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
 
         # ───────────────────────────────────────────────────────
-        # MLflow Tracking URI (duplicate removed)
+        # MLflow Tracking URI — credentials URI mein embed karo
+        # taaki MLflow store cache se pehle hi auth mile
         # ───────────────────────────────────────────────────────
-        mlflow.set_tracking_uri(
-            "https://dagshub.com/kaushik-chariya/Deep-Shield-Mail.mlflow"
+        tracking_uri = (
+            f"https://kaushik-chariya:{dagshub_token}"
+            "@dagshub.com/kaushik-chariya/Deep-Shield-Mail.mlflow"
         )
+
+        mlflow.set_tracking_uri(tracking_uri)
 
         print("✅ MLflow tracking URI configured")
 
         print("\n========== DEBUG INFO ==========")
-        print("Tracking URI :", mlflow.get_tracking_uri())
+        print("Tracking URI :", "https://dagshub.com/kaushik-chariya/Deep-Shield-Mail.mlflow")
         print("Model Name   :", MODEL_EVALUATION_MODEL_NAME)
         print("Alias        :", MODEL_PUSHER_ALIAS)
         print("================================\n")
 
         # ───────────────────────────────────────────────────────
-        # Constants Validation
+        # MLflow Client — usi tracking URI se banao
         # ───────────────────────────────────────────────────────
-        if not MODEL_EVALUATION_MODEL_NAME:
-            raise EnvironmentError(
-                "MODEL_EVALUATION_MODEL_NAME is empty"
-            )
-
-        # ───────────────────────────────────────────────────────
-        # MLflow Client
-        # ───────────────────────────────────────────────────────
-        client = mlflow.MlflowClient()
+        client = mlflow.MlflowClient(tracking_uri=tracking_uri)
 
         # ───────────────────────────────────────────────────────
         # Get Latest Model Version
         # ───────────────────────────────────────────────────────
-        try:
-            latest_versions = client.search_model_versions(
-                filter_string=f"name='{MODEL_EVALUATION_MODEL_NAME}'",
-                order_by=["version_number DESC"],
-                max_results=1,
-            )
+        latest_version = client.get_model_version_by_alias(
+    MODEL_EVALUATION_MODEL_NAME,
+    MODEL_PUSHER_ALIAS
+)
 
-            if not latest_versions:
-                raise Exception(
-                    f"No versions found for model: "
-                    f"{MODEL_EVALUATION_MODEL_NAME}"
-                )
+        if not latest_version:
+            raise Exception(
+        f"No versions found for model: "
+        f"{MODEL_EVALUATION_MODEL_NAME}"
+    )
 
-            latest_version = latest_versions[0]
+        # latest_version = latest_version[0]
 
-            version_number = latest_version.version
-            run_id         = latest_version.run_id
-            source         = latest_version.source
+        version_number = latest_version.version
+        run_id         = latest_version.run_id
 
-            print(f"Latest Version : {version_number}")
-            print(f"Run ID         : {run_id}")
-            print(f"Source         : {source}")
-
-            if not source:
-                raise Exception(
-                    "Model version source is empty — the artifact path "
-                    "was not set correctly when the model was registered."
-                )
-
-        except Exception as e:
-            raise Exception(f"Failed to fetch model version: {e}")
+        print(f"Latest Version : {version_number}")
+        print(f"Run ID         : {run_id}")
 
         # ───────────────────────────────────────────────────────
         # Load MLflow Model
         # ───────────────────────────────────────────────────────
-        try:
-            model_uri = (
-                f"models:/{MODEL_EVALUATION_MODEL_NAME}/"
-                f"{version_number}"
-            )
+        model_uri = (
+            f"models:/{MODEL_EVALUATION_MODEL_NAME}/"
+            f"{version_number}"
+        )
 
-            print(f"Model URI : {model_uri}")
+        print(f"Model URI : {model_uri}")
 
-            cls.model = mlflow.pyfunc.load_model(model_uri)
+        cls.model = mlflow.pyfunc.load_model(model_uri)
 
-            print("✅ MLflow model loaded successfully")
-
-        except Exception as e:
-            raise Exception(f"Failed to load MLflow model: {e}")
+        print("✅ MLflow model loaded successfully")
 
         # ───────────────────────────────────────────────────────
         # Load Preprocessor
         # ───────────────────────────────────────────────────────
-        try:
-            preprocessor_uri = (
-                f"runs:/{run_id}/transformers/transformers.pkl"
-            )
+        preprocessor_uri = (
+            f"runs:/{run_id}/transformers/transformers.pkl"
+        )
 
-            print(f"Preprocessor URI : {preprocessor_uri}")
+        print(f"Preprocessor URI : {preprocessor_uri}")
 
-            preprocessor_path = mlflow.artifacts.download_artifacts(
-                artifact_uri=preprocessor_uri
-            )
+        preprocessor_path = mlflow.artifacts.download_artifacts(
+            artifact_uri=preprocessor_uri
+        )
 
-            with open(preprocessor_path, "rb") as f:
-                cls.preprocessor = dill.load(f)
+        with open(preprocessor_path, "rb") as f:
+            cls.preprocessor = dill.load(f)
 
-            # Debug: check what's inside
-            print(f"Preprocessor type : {type(cls.preprocessor)}")
-            if isinstance(cls.preprocessor, dict):
-                print(f"Preprocessor keys : {list(cls.preprocessor.keys())}")
+        print(f"Preprocessor type : {type(cls.preprocessor)}")
 
-            print("✅ Preprocessor loaded successfully")
+        if isinstance(cls.preprocessor, dict):
+            print(f"Preprocessor keys : {list(cls.preprocessor.keys())}")
 
-        except Exception as e:
-            raise Exception(f"Failed to load preprocessor: {e}")
+        print("✅ Preprocessor loaded successfully")
 
         # ───────────────────────────────────────────────────────
-        # Load Sklearn Model (unwrapped from pyfunc)
+        # Load sklearn model
         # ───────────────────────────────────────────────────────
-        try:
-            cls.sklearn_model = cls.model._model_impl
+        cls.sklearn_model = cls.model._model_impl
 
-            print(f"Sklearn model type : {type(cls.sklearn_model)}")
-            print("✅ Sklearn model loaded successfully")
-
-        except Exception as e:
-            raise Exception(f"Failed to load sklearn model: {e}")
+        print(f"Sklearn model type : {type(cls.sklearn_model)}")
+        print("✅ Sklearn model loaded successfully")
 
     # ───────────────────────────────────────────────────────────
-    # Helper Method — single place to handle preprocessor
+    # FULL TRANSFORMATION PIPELINE
     # ───────────────────────────────────────────────────────────
 
     def _transform(self, samples):
-        """Preprocessor dict ya object — dono ke liye safe transform"""
-        if isinstance(self.preprocessor, dict):
-            vectorizer = self.preprocessor.get("vectorizer") \
-                      or self.preprocessor.get("tfidf") \
-                      or list(self.preprocessor.values())[0]
-            transformed = vectorizer.transform(samples)
-        else:
-            transformed = self.preprocessor.transform(samples)
 
-        # Convert sparse matrix to DataFrame for pyfunc compatibility
+        # Step 1: EmailParser
+        X = self.preprocessor["email_parser"].transform(
+            pd.Series(samples)
+        )
+
+        # Step 2: Meta Features
+        X = self.preprocessor["meta_feature_extractor"].transform(X)
+
+        # Step 3: Body Features
+        X = self.preprocessor["body_feature_extractor"].transform(X)
+
+        # Step 4: Clean body
+        clean_body = X["body"].fillna("").apply(
+            EmailParser.preprocess_email
+        )
+
+        # Step 5: TF-IDF
+        x_body = self.preprocessor["body"].transform(clean_body)
+
+        # Step 6: Hand-crafted features
+        x_hand = (
+            X[HAND_FEAT_COLS]
+            .fillna(0)
+            .values
+            .astype(np.float64)
+        )
+
+        # Step 7: Scaling
+        x_hand_scaled = self.preprocessor["scaler"].transform(
+            x_hand
+        )
+
+        x_hand_sparse = csr_matrix(x_hand_scaled)
+
+        # Step 8: Combine features
+        transformed = hstack([x_body, x_hand_sparse])
+
+        print(f"Final transformed shape : {transformed.shape}")
+
+        # Convert to pandas sparse DataFrame for MLflow pyfunc
         return pd.DataFrame.sparse.from_spmatrix(transformed)
 
     # ───────────────────────────────────────────────────────────
@@ -177,11 +186,9 @@ class TestModel(unittest.TestCase):
     # ───────────────────────────────────────────────────────────
 
     def test_model_loads(self):
-        """Model properly load hota hai"""
         self.assertIsNotNone(self.model)
 
     def test_preprocessor_loads(self):
-        """Preprocessor properly load hota hai"""
         self.assertIsNotNone(self.preprocessor)
 
     # ───────────────────────────────────────────────────────────
@@ -189,7 +196,6 @@ class TestModel(unittest.TestCase):
     # ───────────────────────────────────────────────────────────
 
     def test_model_predicts_spam(self):
-        """Spam email ko 1 predict hona chahiye"""
 
         sample = [
             "Congratulations! You won a free lottery. "
@@ -197,16 +203,15 @@ class TestModel(unittest.TestCase):
         ]
 
         transformed = self._transform(sample)
-        prediction  = self.model.predict(transformed)
+
+        prediction = self.model.predict(transformed)
 
         self.assertEqual(
             int(prediction[0]),
-            1,
-            "Spam email ko 1 predict hona chahiye"
+            1
         )
 
     def test_model_predicts_ham(self):
-        """Normal email ko 0 predict hona chahiye"""
 
         sample = [
             "Hi team, please review the attached report "
@@ -214,12 +219,12 @@ class TestModel(unittest.TestCase):
         ]
 
         transformed = self._transform(sample)
-        prediction  = self.model.predict(transformed)
+
+        prediction = self.model.predict(transformed)
 
         self.assertEqual(
             int(prediction[0]),
-            0,
-            "Normal email ko 0 predict hona chahiye"
+            0
         )
 
     # ───────────────────────────────────────────────────────────
@@ -227,46 +232,43 @@ class TestModel(unittest.TestCase):
     # ───────────────────────────────────────────────────────────
 
     def test_spam_probability_high(self):
-        """Spam probability high honi chahiye"""
 
         sample = [
             "Win a free iPhone now! "
             "Limited time offer! Claim your prize!"
         ]
 
-        transformed      = self._transform(sample)
-        probabilities    = self.sklearn_model.predict_proba(transformed)
+        transformed = self._transform(sample)
+
+        probabilities = self.sklearn_model.predict_proba(
+            transformed
+        )
+
         spam_probability = float(probabilities[0][1])
 
         self.assertGreater(
             spam_probability,
-            0.7,
-            (
-                f"Spam probability 70% se zyada honi chahiye, "
-                f"got {spam_probability:.2f}"
-            )
+            0.7
         )
 
     def test_ham_probability_high(self):
-        """Ham probability high honi chahiye"""
 
         sample = [
             "Hi team, please review the attached report "
             "before tomorrow's meeting."
         ]
 
-        transformed      = self._transform(sample)
-        probabilities    = self.sklearn_model.predict_proba(transformed)
+        transformed = self._transform(sample)
+
+        probabilities = self.sklearn_model.predict_proba(
+            transformed
+        )
+
         spam_probability = float(probabilities[0][1])
 
         self.assertLess(
             spam_probability,
-            0.3,
-            (
-                f"Ham email ki spam probability "
-                f"30% se kam honi chahiye, "
-                f"got {spam_probability:.2f}"
-            )
+            0.3
         )
 
     # ───────────────────────────────────────────────────────────
@@ -274,7 +276,6 @@ class TestModel(unittest.TestCase):
     # ───────────────────────────────────────────────────────────
 
     def test_model_batch_prediction(self):
-        """Multiple emails ek saath predict hone chahiye"""
 
         samples = [
             "Congratulations! You have won a free lottery!",
@@ -284,6 +285,7 @@ class TestModel(unittest.TestCase):
         ]
 
         transformed = self._transform(samples)
+
         predictions = self.model.predict(transformed)
 
         self.assertEqual(len(predictions), 4)

@@ -137,6 +137,27 @@ class TrainPipeline:
             logger.info("🏃 Training Pipeline: STARTED")
             logger.info("=" * 60)
 
+            # 🔧 FIX: Agar df None hai, to params.yaml se source dekh ke fetch kar
+            if df is None:
+                from src.data_access.load_data import load_params, load_data_from_postgres, load_data_from_s3, load_data_from_both
+                
+                params = load_params("params.yaml")
+                source = params["data_ingestion"]["source"]
+                
+                logger.info(f"📦 Auto-fetching data from source: {source}")
+                
+                if source == "postgres":
+                    df = load_data_from_postgres(params["data_ingestion"]["postgres"])
+                elif source == "s3":
+                    df = load_data_from_s3(params["data_ingestion"]["s3"])
+                elif source == "both":
+                    df = load_data_from_both(
+                        params["data_ingestion"]["postgres"],
+                        params["data_ingestion"]["s3"],
+                    )
+                else:
+                    raise ValueError(f"Invalid source '{source}' in params.yaml")
+
             # 1️⃣ Ingestion
             data_ingestion_artifact = self.start_data_ingestion(df=df)
 
@@ -193,4 +214,4 @@ class TrainPipeline:
 
 if __name__ == "__main__":
     pipeline = TrainPipeline()
-    pipeline.run_pipeline()   # df=None → DataIngestion khud fetch karega
+    pipeline.run_pipeline()   # df=None → ab auto-fetch karega params.yaml se
