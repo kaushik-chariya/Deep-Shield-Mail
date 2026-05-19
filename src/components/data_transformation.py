@@ -1,10 +1,17 @@
 # ═══════════════════════════════════════════════════════════════
 # Data Transformation Pipeline
 # ═══════════════════════════════════════════════════════════════
+#
+# MLflow pickle/unpickle rule:
+#   After unpickle, the module globals are NOT in scope inside
+#   instance/static methods. Fix: every method must be 100%
+#   self-contained — all imports AND all literals defined locally.
+# ═══════════════════════════════════════════════════════════════
 
+import re
 import sys
 import os
-import re
+import logging
 import numpy as np
 import pandas as pd
 
@@ -28,7 +35,7 @@ from src.utils.main_utils   import save_object, read_yaml_file
 
 
 # ───────────────────────────────────────────────────────────────
-# Regex constants
+# Module-level regex  (used during normal training run only)
 # ───────────────────────────────────────────────────────────────
 
 HEADER_KEYS_RE = re.compile(
@@ -39,47 +46,45 @@ HEADER_KEYS_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Hand-crafted feature columns — notebook features + meta features
-# HAND_FEAT_COLS = [
-#     # ── Notebook body features ───────────────────────────────────
-#     'caps_ratio',
-#     'exclamation_count',
-#     'url_count',
-#     'dollar_count',
-#     'html_flag',
-#     'word_count',
-#     'avg_word_length',
-#     'digit_ratio',
-#     'unique_word_ratio',
-#     # ── Meta features (email header signals) ────────────────────
-#     'same_domain',    # spam aksar alag domain se aata hai
-#     'is_weekend',     # weekend pe spam zyada
-#     'to_is_generic',  # noreply/admin — spam pattern
-# ]
-
 
 # ───────────────────────────────────────────────────────────────
 # Custom Transformers
 # ───────────────────────────────────────────────────────────────
 
 class EmailParser(BaseEstimator, TransformerMixin):
+    """
+    Every method is 100% self-contained:
+    - stdlib imports are local
+    - regex pattern string is hardcoded locally (not referenced from module)
+    This ensures the class works after MLflow pickle/unpickle.
+    """
 
     @staticmethod
     def _extract_body(text: str) -> str:
-        matches    = list(HEADER_KEYS_RE.finditer(text))
+        import re
+        # Pattern hardcoded locally — no module-level reference
+        _header_re = re.compile(
+            r'\b(From|Return-Path|Delivered-To|Received|Message-Id|To|Subject|Date|'
+            r'MIME-Version|Content-Type|Content-Transfer-Encoding|Delivery-Date|'
+            r'Reply-To|Cc|Bcc|In-Reply-To|References|Importance|Thread-Index|'
+            r'Thread-Topic|Organization|X-[\w-]+):\s*',
+            re.IGNORECASE,
+        )
+        matches    = list(_header_re.finditer(text))
         if not matches:
             return text
         last_match = matches[-1]
         after_last = text[last_match.end():]
         value_end  = re.search(r'\s+[A-Z][^:]{10,}', after_last)
         body       = after_last[value_end.start():].strip() if value_end else after_last.strip()
-        body       = HEADER_KEYS_RE.sub(' ', body)
+        body       = _header_re.sub(' ', body)
         body       = re.sub(r'<[^>]+>', ' ', body)
         body       = re.sub(r'\s+', ' ', body).strip()
         return body
 
     @staticmethod
     def _get_field(pattern: str, text: str) -> str:
+        import re
         match = re.search(pattern, text, re.IGNORECASE)
         return match.group(1).strip() if match else ''
 
@@ -89,21 +94,21 @@ class EmailParser(BaseEstimator, TransformerMixin):
         NLP text cleaning — applied on raw email text before TF-IDF.
         Matches notebook: exp-Naive_Bayes.ipynb → preprocess_email()
         """
+        import re
         if not isinstance(text, str):
             return ''
         text = text.lower()
-        # Remove email header lines
         text = re.sub(
             r'^(from|subject|to|cc|bcc|received|content-type|mime-version|'
             r'message-id|return-path|delivered-to|x-[a-z-]+):.*$',
             '', text, flags=re.MULTILINE | re.IGNORECASE,
         )
-        text = re.sub(r'https?://\S+|www\.\S+',   ' url ',   text)  # URLs → token
-        text = re.sub(r'[\w.+-]+@[\w-]+\.[\w.-]+', ' email ', text)  # Emails → token
-        text = re.sub(r'\$\s*\d+[\d,.]*',          ' money ', text)  # Money → token
-        text = re.sub(r'\b(\+?\d[\s.-]?){7,15}\b', ' phone ', text)  # Phone → token
-        text = re.sub(r'<[^>]+>',  ' ', text)                        # HTML tags
-        text = re.sub(r'[^a-z\s]', ' ', text)                        # Non-alpha chars
+        text = re.sub(r'https?://\S+|www\.\S+',    ' url ',   text)
+        text = re.sub(r'[\w.+-]+@[\w-]+\.[\w.-]+', ' email ', text)
+        text = re.sub(r'\$\s*\d+[\d,.]*',          ' money ', text)
+        text = re.sub(r'\b(\+?\d[\s.-]?){7,15}\b', ' phone ', text)
+        text = re.sub(r'<[^>]+>',  ' ', text)
+        text = re.sub(r'[^a-z\s]', ' ', text)
         text = re.sub(r'\s+', ' ', text).strip()
         return text
 
@@ -120,11 +125,14 @@ class EmailParser(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         return self
 
-    def transform(self, X, y=None) -> pd.DataFrame:
-        logger.info("EmailParser.transform: started — input size: %d emails", len(X))
+    def transform(self, X, y=None):
+        import logging
+        import pandas as pd
+        _log = logging.getLogger(__name__)
+        _log.info("EmailParser.transform: started — input size: %d emails", len(X))
         parsed = X.apply(self._parse_single)
         df     = pd.DataFrame(list(parsed))
-        logger.info("EmailParser.transform: finished — output shape: %s", df.shape)
+        _log.info("EmailParser.transform: finished — output shape: %s", df.shape)
         return df
 
 
@@ -133,8 +141,10 @@ class EmailMetaFeatureExtractor(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         return self
 
-    def transform(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
-        logger.info("EmailMetaFeatureExtractor.transform: started — input shape: %s", X.shape)
+    def transform(self, X, y=None):
+        import logging
+        _log = logging.getLogger(__name__)
+        _log.info("EmailMetaFeatureExtractor.transform: started — input shape: %s", X.shape)
         df = X.copy()
 
         df['from_email']  = df['from'].str.extract(r'<?([\w.\+\-]+@[\w.\-]+\.\w+)>?')
@@ -155,7 +165,7 @@ class EmailMetaFeatureExtractor(BaseEstimator, TransformerMixin):
         for col in ['to_email', 'to_domain', 'from_email', 'from_domain']:
             df[col] = df[col].fillna('unknown')
 
-        logger.info("EmailMetaFeatureExtractor.transform: finished — output shape: %s", df.shape)
+        _log.info("EmailMetaFeatureExtractor.transform: finished — output shape: %s", df.shape)
         return df
 
 
@@ -171,18 +181,20 @@ class BodyFeatureExtractor(BaseEstimator, TransformerMixin):
 
     @staticmethod
     def _parse_hour(date_str: str) -> int:
+        import re
         match = re.search(r'(\d{2}):\d{2}:\d{2}', str(date_str))
         return int(match.group(1)) if match else -1
 
-    def transform(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
-        logger.info("BodyFeatureExtractor.transform: started — input shape: %s", X.shape)
+    def transform(self, X, y=None):
+        import logging
+        import numpy as np
+        _log = logging.getLogger(__name__)
+        _log.info("BodyFeatureExtractor.transform: started — input shape: %s", X.shape)
         df  = X.copy()
 
-        # Use raw body for hand-crafted features (before NLP cleaning) — matches notebook
         raw   = df['body'].fillna('')
         words = raw.str.split()
 
-        # ── Notebook hand-crafted features ──────────────────────────────
         df['caps_ratio'] = raw.apply(
             lambda t: sum(c.isupper() for c in t) / max(len(t), 1)
         )
@@ -204,13 +216,8 @@ class BodyFeatureExtractor(BaseEstimator, TransformerMixin):
             lambda ws: len(set(ws)) / max(len(ws), 1)
             if isinstance(ws, list) and ws else 0
         )
-        # ────────────────────────────────────────────────────────────────
 
-        logger.info(
-            "BodyFeatureExtractor.transform: hand-crafted features added — %s",
-            HAND_FEAT_COLS,
-        )
-        logger.info("BodyFeatureExtractor.transform: finished — output shape: %s", df.shape)
+        _log.info("BodyFeatureExtractor.transform: finished — output shape: %s", df.shape)
         return df
 
 
@@ -264,11 +271,6 @@ class DataTransformation:
             raise MyException(e, sys)
 
     def get_data_transformer_object(self) -> dict:
-        """
-        Returns transformers dict:
-          - 'body'   : TfidfVectorizer (params from params.yaml → data_transformation.tfidf)
-          - 'scaler' : MinMaxScaler    (required for MultinomialNB — keeps values >= 0)
-        """
         logger.info("get_data_transformer_object: initialising sub-transformers")
         try:
             tfidf_cfg = self._params["data_transformation"]["tfidf"]
@@ -283,7 +285,7 @@ class DataTransformation:
                 max_df       = tfidf_cfg["max_df"],
                 strip_accents= tfidf_cfg["strip_accents"],
             )
-            scaler = MinMaxScaler()  # MultinomialNB requires non-negative features
+            scaler = MinMaxScaler()
 
             logger.info(
                 "get_data_transformer_object: TF-IDF params — max_features=%s, "
@@ -295,10 +297,7 @@ class DataTransformation:
                 "get_data_transformer_object: MinMaxScaler initialised for %d hand-crafted features",
                 len(HAND_FEAT_COLS),
             )
-            return {
-                "body"  : trf_body,
-                "scaler": scaler,
-            }
+            return {"body": trf_body, "scaler": scaler}
         except Exception as e:
             raise MyException(e, sys) from e
 
@@ -324,22 +323,11 @@ class DataTransformation:
         return df.drop(columns=to_drop)
 
     def _build_feature_matrix(self, df: pd.DataFrame, transformers: dict, fit: bool):
-        """
-        Builds final sparse feature matrix:
-          1. preprocess_email → TfidfVectorizer on cleaned body text
-          2. MinMaxScaler     on HAND_FEAT_COLS (keeps values >= 0 for MultinomialNB)
-          3. hstack([tfidf_sparse, scaled_hand_features])
-        """
         mode = "fit_transform" if fit else "transform"
         logger.info("_build_feature_matrix: started — mode=%s, input shape=%s", mode, df.shape)
 
-        # ── Step A: NLP cleaning → TF-IDF ───────────────────────────────
-        logger.info("_build_feature_matrix: applying preprocess_email on body text")
         clean_body = df['body'].fillna('').apply(EmailParser.preprocess_email)
-        logger.info(
-            "_build_feature_matrix: text cleaning done — %d documents cleaned",
-            len(clean_body),
-        )
+        logger.info("_build_feature_matrix: text cleaning done — %d documents cleaned", len(clean_body))
 
         if fit:
             x_body = transformers["body"].fit_transform(clean_body)
@@ -347,12 +335,9 @@ class DataTransformation:
             x_body = transformers["body"].transform(clean_body)
         logger.info("_build_feature_matrix: TF-IDF shape — %s", x_body.shape)
 
-        # ── Step B: Hand-crafted features → MinMaxScaler ─────────────────
         missing_cols = [c for c in HAND_FEAT_COLS if c not in df.columns]
         if missing_cols:
-            logger.warning(
-                "_build_feature_matrix: missing hand-crafted columns — %s", missing_cols
-            )
+            logger.warning("_build_feature_matrix: missing hand-crafted columns — %s", missing_cols)
 
         x_hand = df[HAND_FEAT_COLS].fillna(0).values.astype(np.float64)
         if fit:
@@ -360,12 +345,8 @@ class DataTransformation:
         else:
             x_hand_scaled = transformers["scaler"].transform(x_hand)
         x_hand_sparse = csr_matrix(x_hand_scaled)
-        logger.info(
-            "_build_feature_matrix: hand-crafted features scaled — shape=%s",
-            x_hand_sparse.shape,
-        )
+        logger.info("_build_feature_matrix: hand-crafted features scaled — shape=%s", x_hand_sparse.shape)
 
-        # ── Step C: Combine ───────────────────────────────────────────────
         X_final = hstack([x_body, x_hand_sparse])
         logger.info("_build_feature_matrix: final combined shape=%s", X_final.shape)
         return X_final
@@ -379,47 +360,39 @@ class DataTransformation:
             if not self.data_validation_artifact.validation_status:
                 raise Exception(self.data_validation_artifact.message)
 
-            # Step 1: Load
             logger.info("[Step 1/10] Loading raw CSVs")
             train_df = self.read_data(self.data_ingestion_artifact.trained_file_path)
             test_df  = self.read_data(self.data_ingestion_artifact.test_file_path)
 
-            # Step 2: Separate target
             logger.info("[Step 2/10] Separating target column '%s'", TARGET_COLUMN)
             y_train     = train_df[TARGET_COLUMN].reset_index(drop=True)
             y_test      = test_df[TARGET_COLUMN].reset_index(drop=True)
             X_train_raw = train_df.drop(columns=[TARGET_COLUMN]).reset_index(drop=True)
             X_test_raw  = test_df.drop(columns=[TARGET_COLUMN]).reset_index(drop=True)
 
-            # Step 3: Parse email
             logger.info("[Step 3/10] Parsing raw email text — extracting from/subject/date/to/body")
             parser  = EmailParser()
             X_train = parser.fit_transform(X_train_raw['text'])
             X_test  = parser.transform(X_test_raw['text'])
 
-            # Step 4: Meta features
             logger.info("[Step 4/10] Extracting meta features — domains, day_of_week, is_weekend")
             meta_extractor = EmailMetaFeatureExtractor()
             X_train = meta_extractor.fit_transform(X_train)
             X_test  = meta_extractor.transform(X_test)
 
-            # Step 5: Body / hand-crafted features (notebook-style)
             logger.info("[Step 5/10] Extracting hand-crafted body features — %s", HAND_FEAT_COLS)
             body_extractor = BodyFeatureExtractor()
             X_train = body_extractor.fit_transform(X_train)
             X_test  = body_extractor.transform(X_test)
 
-            # Step 6: Drop schema columns
             logger.info("[Step 6/10] Dropping schema-defined columns")
             X_train = self._drop_columns(X_train)
             X_test  = self._drop_columns(X_test)
 
-            # Step 7: Drop high cardinality
             logger.info("[Step 7/10] Dropping high-cardinality columns")
             X_train = self._drop_high_cardinality_cols(X_train)
             X_test  = self._drop_high_cardinality_cols(X_test)
 
-            # Step 8: Dedup train only
             logger.info("[Step 8/10] Deduplicating train set")
             before_dedup  = len(X_train)
             X_train_dedup = self._drop_train_duplicates(X_train)
@@ -432,8 +405,6 @@ class DataTransformation:
                 f"X_test / y_test length mismatch: {len(X_test)} vs {len(y_test)}"
             )
 
-            # Step 9: Build sparse matrices
-            # TF-IDF (cleaned body) + MinMaxScaler (hand-crafted) → hstack
             logger.info("[Step 9/10] Building sparse feature matrices — TF-IDF + hand-crafted features")
             transformers  = self.get_data_transformer_object()
             X_train_final = self._build_feature_matrix(X_train, transformers, fit=True)
@@ -443,12 +414,8 @@ class DataTransformation:
                 f"Feature width mismatch — train: {X_train_final.shape[1]}, "
                 f"test: {X_test_final.shape[1]}"
             )
-            logger.info(
-                "[Step 9/10] train shape=%s, test shape=%s",
-                X_train_final.shape, X_test_final.shape,
-            )
+            logger.info("[Step 9/10] train shape=%s, test shape=%s", X_train_final.shape, X_test_final.shape)
 
-            # Step 10: Concatenate features + target
             logger.info("[Step 10/10] Concatenating features with target")
             y_train_sparse = csr_matrix(np.array(y_train).reshape(-1, 1))
             y_test_sparse  = csr_matrix(np.array(y_test).reshape(-1, 1))
@@ -456,7 +423,6 @@ class DataTransformation:
             test_arr       = hstack([X_test_final,  y_test_sparse]).toarray()
             logger.info("[Step 10/10] train=%s, test=%s", train_arr.shape, test_arr.shape)
 
-            # Save artifacts
             logger.info("Saving transformation artifacts")
             all_transformers = {
                 "body"                  : transformers["body"],
@@ -466,18 +432,9 @@ class DataTransformation:
                 "body_feature_extractor": body_extractor,
             }
 
-            save_object(
-                self.data_transformation_config.transformed_object_file_path,
-                all_transformers,
-            )
-            save_numpy_array(
-                self.data_transformation_config.transformed_train_file_path,
-                array=train_arr,
-            )
-            save_numpy_array(
-                self.data_transformation_config.transformed_test_file_path,
-                array=test_arr,
-            )
+            save_object(self.data_transformation_config.transformed_object_file_path, all_transformers)
+            save_numpy_array(self.data_transformation_config.transformed_train_file_path, array=train_arr)
+            save_numpy_array(self.data_transformation_config.transformed_test_file_path,  array=test_arr)
 
             logger.info("=" * 70)
             logger.info("Data Transformation Pipeline: COMPLETED SUCCESSFULLY ✅")

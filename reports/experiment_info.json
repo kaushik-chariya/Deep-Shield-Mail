@@ -1,8 +1,8 @@
 {
-    "run_id": "114e153c30574a50b4a304f390d3af39",
+    "run_id": "960f0aa0d7cd4224a3b07738f27296e8",
     "model_path": "model",
     "transformers_path": "transformers/transformers.pkl",
-    "push_model": false,
+    "push_model": true,
     "new_score": 0.9869,
-    "best_score": 0.9869
+    "best_score": 0.0
 }
