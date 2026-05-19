@@ -161,7 +161,7 @@ class ModelTrainer:
                 logger.info("✅ transformers.pkl logged successfully")
 
             logger.info("=" * 60)
-            logger.info("✅ MODEL TRAINER COMPLETED")
+            logger.info("✅ MODEL TRAINER COMPLETED.")
             logger.info("=" * 60)
 
             return ModelTrainerArtifact(
