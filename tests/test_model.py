@@ -162,17 +162,13 @@ class TestModel(unittest.TestCase):
         # ───────────────────────────────────────────────────────
         try:
             sklearn_model_uri = (
-                f"runs:/{run_id}/model/model.pkl"
-            )
+                f"models:/{MODEL_EVALUATION_MODEL_NAME}/"
+                f"{version_number}" )
 
             print(f"Sklearn Model URI : {sklearn_model_uri}")
 
-            sklearn_model_path = mlflow.artifacts.download_artifacts(
-                artifact_uri=sklearn_model_uri
-            )
-
-            with open(sklearn_model_path, "rb") as f:
-                cls.sklearn_model = pickle.load(f)
+            cls.sklearn_model = mlflow.sklearn.load_model(
+            sklearn_model_uri)
 
             print("✅ Sklearn model loaded successfully")
 
