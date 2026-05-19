@@ -174,7 +174,7 @@ class ModelEvaluation:
 
                 mlflow.sklearn.log_model(
                     sk_model      = clf,
-                    artifact_path = "model",        # ← FIXED (was: name="model")
+                    name = "model",        # ← FIXED (was: name="model")
                     signature     = signature,
                     input_example = input_example,
                 )
