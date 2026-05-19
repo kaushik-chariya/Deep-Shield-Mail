@@ -37,16 +37,21 @@ class TestModel(unittest.TestCase):
         # ───────────────────────────────────────────────────────
         # DagShub Init (required for artifact path resolution)
         # ───────────────────────────────────────────────────────
-        try:
-            import dagshub
-            dagshub.init(
-                repo_owner="kaushik-chariya",
-                repo_name="Deep-Shield-Mail",
-                mlflow=True
-            )
-            print("✅ DagShub initialized successfully")
-        except Exception as e:
-            raise EnvironmentError(f"Failed to initialize DagShub: {e}")
+        # try:
+        #     import dagshub
+        #     dagshub.init(
+        #         repo_owner="kaushik-chariya",
+        #         repo_name="Deep-Shield-Mail",
+        #         mlflow=True
+        #     )
+        #     print("✅ DagShub initialized successfully")
+        # except Exception as e:
+        #     raise EnvironmentError(f"Failed to initialize DagShub: {e}")
+
+        mlflow.set_tracking_uri(
+            "https://dagshub.com/kaushik-chariya/Deep-Shield-Mail.mlflow" )
+
+        print("✅ MLflow tracking URI configured")
 
         # ───────────────────────────────────────────────────────
         # MLflow Tracking URI

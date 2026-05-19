@@ -6,7 +6,7 @@ Flow:
   1. reports/metrics.json load karo
   2. Har metric threshold se compare karo
   3. Pass → S3 pe model + preprocessor upload karo
-  4. Pass → MLflow registry mein @champion alias set karo
+  4. Pass → MLflow registry mein @production alias set karo
   5. Fail → sys.exit(1) se CI rok do
 """
 
@@ -151,10 +151,10 @@ def get_latest_version(client: MlflowClient) -> str:
     return versions[0].version
 
 
-def set_champion_alias(client: MlflowClient, version: str) -> None:
+def set_production_alias(client: MlflowClient, version: str) -> None:
     """
     ✅ FIX 2: Latest version ko MODEL_PUSHER_ALIAS
-    (e.g. 'champion') assign karo.
+    (e.g. 'production') assign karo.
     Bina iske MLflow registry aur S3 out-of-sync rehte hain —
     registry mein koi 'production' model nahi hota.
     """
@@ -232,7 +232,7 @@ def promote_model() -> None:
     upload_to_s3()
 
     # ── Step 4 : MLflow alias set ──────────────────────────────
-    set_champion_alias(client, version)
+    set_production_alias(client, version)
 
     logger.info("═══════════════════════════════════════════")
     logger.info("🚀 Model successfully promoted to production!")

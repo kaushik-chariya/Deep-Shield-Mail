@@ -114,24 +114,24 @@ class ModelEvaluation:
             "auc"      : round(roc_auc_score(  y_test, y_pred_proba), 4),
         }
 
-    def _get_champion_accuracy(self, model_name: str) -> float:
+    def _get_production_accuracy(self, model_name: str) -> float:
         try:
             client           = MlflowClient()
-            champion_version = client.get_model_version_by_alias(
+            production_version = client.get_model_version_by_alias(
                 name =model_name,
                 alias=MODEL_PUSHER_ALIAS,
             )
-            prev_run = client.get_run(champion_version.run_id)
+            prev_run = client.get_run(production_version.run_id)
             best_acc = prev_run.data.metrics.get("accuracy", 0.0)
             logger.info(
-                "🏆 Champion (alias='%s') accuracy: %.4f",
+                "🏆 production (alias='%s') accuracy: %.4f",
                 MODEL_PUSHER_ALIAS, best_acc,
             )
             return best_acc
 
         except Exception:
             logger.info(
-                "⚠️  Koi champion nahi mila (alias='%s') — "
+                "⚠️  Koi production nahi mila (alias='%s') — "
                 "pehli baar hai, push hoga",
                 MODEL_PUSHER_ALIAS,
             )
@@ -208,8 +208,8 @@ class ModelEvaluation:
                 mlflow.log_artifact("reports/metrics.json")
                 logger.info("💾 Metrics saved → reports/metrics.json")
 
-                # ── Step 8: Compare with champion ─────────────
-                best_accuracy = self._get_champion_accuracy(MODEL_EVALUATION_MODEL_NAME)
+                # ── Step 8: Compare with production ─────────────
+                best_accuracy = self._get_production_accuracy(MODEL_EVALUATION_MODEL_NAME)
                 new_accuracy  = metrics["accuracy"]
                 should_push   = new_accuracy > best_accuracy
 

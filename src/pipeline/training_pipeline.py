@@ -175,7 +175,7 @@ class TrainPipeline:
                 )
             else:
                 logger.info(
-                    "⏭️  Model NOT pushed — existing champion is better "
+                    "⏭️  Model NOT pushed — existing production is better "
                     "(new=%.4f  best=%.4f)",
                     model_info.get("new_score",  0),
                     model_info.get("best_score", 0),
