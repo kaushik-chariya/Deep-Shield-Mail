@@ -13,7 +13,7 @@ import numpy as np
 import mlflow
 import mlflow.sklearn
 from mlflow.tracking import MlflowClient
-from mlflow.models.signature import infer_signature      # ← WARNING FIX
+from mlflow.models.signature import infer_signature
 from sklearn.metrics import (
     accuracy_score,
     f1_score,
@@ -165,14 +165,16 @@ class ModelEvaluation:
                     for k, v in clf.get_params().items():
                         mlflow.log_param(k, v)
 
-                # ── Step 5: Log model  ─────────────────────────
-                # WARNING FIX: signature + input_example add kiya
+                # ── Step 5: Log model ──────────────────────────
+                # FIX: name="model" → artifact_path="model"
+                # name="" → MLflow registry mein path='' store hota tha → CI crash
+                # artifact_path="model" → sahi path store hota hai → load hoga ✅
                 input_example = X_test[:5]
                 signature     = infer_signature(X_test, clf.predict(X_test))
 
                 mlflow.sklearn.log_model(
                     sk_model      = clf,
-                    name          = "model",
+                    artifact_path = "model",        # ← FIXED (was: name="model")
                     signature     = signature,
                     input_example = input_example,
                 )

@@ -2,6 +2,7 @@ import unittest
 import os
 import sys
 import pickle
+import dill                  # ← FIX: transformers.pkl dill se save hua tha
 import mlflow
 import mlflow.pyfunc
 import numpy as np
@@ -26,7 +27,6 @@ class TestModel(unittest.TestCase):
             raise EnvironmentError("DEEPSHIELD_TEST env variable not set")
 
         # ── Constants validation ─────────────────────────────────
-        # BUG FIX #3: constants empty hone par crash hoga silently — ab explicit error
         if not MODEL_EVALUATION_MODEL_NAME:
             raise EnvironmentError("MODEL_EVALUATION_MODEL_NAME is empty in constants")
         if not MODEL_PUSHER_ALIAS:
@@ -43,29 +43,27 @@ class TestModel(unittest.TestCase):
         model_uri = f"models:/{MODEL_EVALUATION_MODEL_NAME}@{MODEL_PUSHER_ALIAS}"
         cls.model = mlflow.pyfunc.load_model(model_uri)
 
-        # ── Preprocessor load ────────────────────────────────────
-        # BUG FIX #1: mlflow.artifacts.load_artifact() exist nahi karta
-        # Correct API: download_artifacts() → local path milta hai → pickle se load karo
-        client = mlflow.MlflowClient()
+        # ── Run ID fetch ─────────────────────────────────────────
+        client   = mlflow.MlflowClient()
         champion = client.get_model_version_by_alias(
-            name=MODEL_EVALUATION_MODEL_NAME,
+            name =MODEL_EVALUATION_MODEL_NAME,
             alias=MODEL_PUSHER_ALIAS,
         )
         run_id = champion.run_id
 
-        local_path = mlflow.artifacts.download_artifacts(
+        # ── Preprocessor load ────────────────────────────────────
+        # FIX: pickle → dill  (model_evaluation.py mein dill se save hua tha)
+        preprocessor_path = mlflow.artifacts.download_artifacts(
             artifact_uri=f"runs:/{run_id}/transformers/transformers.pkl"
         )
-        with open(local_path, "rb") as f:
-            cls.preprocessor = pickle.load(f)
+        with open(preprocessor_path, "rb") as f:
+            cls.preprocessor = dill.load(f)         # ← FIX: was pickle.load
 
-        # ── Underlying sklearn model for probability tests ────────
-        # BUG FIX #2: pyfunc model .predict() labels deta hai, probabilities nahi
-        # sklearn model directly chahiye predict_proba ke liye
-        model_download_path = mlflow.artifacts.download_artifacts(
+        # ── Underlying sklearn model (for predict_proba) ─────────
+        sklearn_model_path = mlflow.artifacts.download_artifacts(
             artifact_uri=f"runs:/{run_id}/model/model.pkl"
         )
-        with open(model_download_path, "rb") as f:
+        with open(sklearn_model_path, "rb") as f:
             cls.sklearn_model = pickle.load(f)
 
     # ── Load tests ──────────────────────────────────────────────
@@ -84,7 +82,7 @@ class TestModel(unittest.TestCase):
         """Model spam email ko 1 predict karta hai"""
         sample = ["Congratulations! You have won a free lottery. Click here to claim now!"]
         transformed = self.preprocessor.transform(sample)
-        prediction = self.model.predict(transformed)
+        prediction  = self.model.predict(transformed)
         self.assertEqual(int(prediction[0]), 1,
             "Spam email ko 1 predict hona chahiye")
 
@@ -92,20 +90,18 @@ class TestModel(unittest.TestCase):
         """Model normal email ko 0 predict karta hai"""
         sample = ["Hi team, please review the attached report before tomorrow's meeting."]
         transformed = self.preprocessor.transform(sample)
-        prediction = self.model.predict(transformed)
+        prediction  = self.model.predict(transformed)
         self.assertEqual(int(prediction[0]), 0,
             "Normal email ko 0 predict hona chahiye")
 
     # ── Probability tests ───────────────────────────────────────
-    # BUG FIX #2: pyfunc predict() se probability nahi milti
-    # sklearn_model.predict_proba() use karo
 
     def test_spam_probability_high(self):
         """Spam email ki probability 0.7 se zyada honi chahiye"""
         sample = ["Win a free iPhone now! Limited time offer! Claim your prize!"]
         transformed = self.preprocessor.transform(sample)
-        proba = self.sklearn_model.predict_proba(transformed)
-        spam_prob = float(proba[0][1])  # index 1 = spam class probability
+        proba       = self.sklearn_model.predict_proba(transformed)
+        spam_prob   = float(proba[0][1])
         self.assertGreater(spam_prob, 0.7,
             f"Spam probability 70% se zyada honi chahiye, got {spam_prob:.2f}")
 
@@ -113,8 +109,8 @@ class TestModel(unittest.TestCase):
         """Normal email ki ham probability 0.7 se zyada honi chahiye"""
         sample = ["Hi team, please review the attached report before tomorrow's meeting."]
         transformed = self.preprocessor.transform(sample)
-        proba = self.sklearn_model.predict_proba(transformed)
-        spam_prob = float(proba[0][1])  # index 1 = spam class probability
+        proba       = self.sklearn_model.predict_proba(transformed)
+        spam_prob   = float(proba[0][1])
         self.assertLess(spam_prob, 0.3,
             f"Ham email ki spam probability 30% se kam honi chahiye, got {spam_prob:.2f}")
 
