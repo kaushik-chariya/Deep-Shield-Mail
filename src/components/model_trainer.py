@@ -41,19 +41,9 @@ class ModelTrainer:
     ):
         try:
             self.config = model_trainer_config
-
-            self.data_transformation_artifact = (
-                data_transformation_artifact
-            )
-
-            self._params = read_yaml_file(
-                file_path="params.yaml"
-            )
-
-            logger.info(
-                "🔧 ModelTrainer initialized successfully"
-            )
-
+            self.data_transformation_artifact = data_transformation_artifact
+            self._params = read_yaml_file(file_path="params.yaml")
+            logger.info("🔧 ModelTrainer initialized successfully")
         except Exception as e:
             raise MyException(e, sys)
 
@@ -61,34 +51,17 @@ class ModelTrainer:
     # Train Model
     # ───────────────────────────────────────────────────────────
 
-    def train_model(
-        self,
-        X_train: np.ndarray,
-        y_train: np.ndarray,
-    ) -> MultinomialNB:
-
+    def train_model(self, X_train: np.ndarray, y_train: np.ndarray) -> MultinomialNB:
         try:
             nb_cfg = self._params["model_trainer"]["naive_bayes"]
-
             logger.info(
                 "🤖 Training MultinomialNB | alpha=%s | fit_prior=%s",
-                nb_cfg["alpha"],
-                nb_cfg["fit_prior"],
+                nb_cfg["alpha"], nb_cfg["fit_prior"],
             )
-
-            clf = MultinomialNB(
-                alpha=nb_cfg["alpha"],
-                fit_prior=nb_cfg["fit_prior"],
-            )
-
+            clf = MultinomialNB(alpha=nb_cfg["alpha"], fit_prior=nb_cfg["fit_prior"])
             clf.fit(X_train, y_train)
-
-            logger.info(
-                "✅ MultinomialNB training completed"
-            )
-
+            logger.info("✅ MultinomialNB training completed")
             return clf
-
         except Exception as e:
             raise MyException(e, sys)
 
@@ -96,122 +69,58 @@ class ModelTrainer:
     # Main Training Pipeline
     # ───────────────────────────────────────────────────────────
 
-    def initiate_model_trainer(
-        self,
-    ) -> ModelTrainerArtifact:
-
+    def initiate_model_trainer(self) -> ModelTrainerArtifact:
         try:
             logger.info("=" * 60)
             logger.info("🚀 MODEL TRAINER STARTED")
             logger.info("=" * 60)
 
-            # ───────────────────────────────────────────────
-            # Step 1 : Load Train Array
-            # ───────────────────────────────────────────────
-
+            # ── Step 1 : Load Train Array ───────────────────
             logger.info(
                 "📂 Loading train array from : %s",
                 self.data_transformation_artifact.transformed_train_file_path,
             )
-
-            train_arr = np.load(
-                self.data_transformation_artifact.transformed_train_file_path
-            )
-
-            logger.info(
-                "📐 Train array shape : %s",
-                train_arr.shape,
-            )
+            train_arr = np.load(self.data_transformation_artifact.transformed_train_file_path)
+            logger.info("📐 Train array shape : %s", train_arr.shape)
 
             X_train = train_arr[:, :-1]
             y_train = train_arr[:, -1]
+            logger.info("📐 X_train : %s | y_train : %s", X_train.shape, y_train.shape)
 
-            logger.info(
-                "📐 X_train : %s | y_train : %s",
-                X_train.shape,
-                y_train.shape,
-            )
+            # ── Step 2 : Train Model ────────────────────────
+            clf = self.train_model(X_train=X_train, y_train=y_train)
 
-            # ───────────────────────────────────────────────
-            # Step 2 : Train Model
-            # ───────────────────────────────────────────────
-
-            clf = self.train_model(
-                X_train=X_train,
-                y_train=y_train,
-            )
-
-            # ───────────────────────────────────────────────
-            # Step 3 : Save model.pkl
-            # ───────────────────────────────────────────────
-
-            os.makedirs(
-                os.path.dirname(
-                    self.config.trained_model_file_path
-                ),
-                exist_ok=True,
-            )
-
-            with open(
-                self.config.trained_model_file_path,
-                "wb",
-            ) as f:
+            # ── Step 3 : Save model.pkl ─────────────────────
+            os.makedirs(os.path.dirname(self.config.trained_model_file_path), exist_ok=True)
+            with open(self.config.trained_model_file_path, "wb") as f:
                 pickle.dump(clf, f)
+            logger.info("💾 model.pkl saved at : %s", self.config.trained_model_file_path)
 
-            logger.info(
-                "💾 model.pkl saved at : %s",
-                self.config.trained_model_file_path,
-            )
-
-            # ───────────────────────────────────────────────
-            # Step 4 : Save transformers.pkl
-            # ───────────────────────────────────────────────
-
-            transformers_src = (
-                self.data_transformation_artifact
-                .transformed_object_file_path
-            )
-
+            # ── Step 4 : Save transformers.pkl ──────────────
+            transformers_src = self.data_transformation_artifact.transformed_object_file_path
             transformers_dst = os.path.join(
-                os.path.dirname(
-                    self.config.trained_model_file_path
-                ),
+                os.path.dirname(self.config.trained_model_file_path),
                 "transformers.pkl",
             )
-
             with open(transformers_src, "rb") as f:
                 transformers = dill.load(f)
-
             with open(transformers_dst, "wb") as f:
                 dill.dump(transformers, f)
+            logger.info("💾 transformers.pkl saved at : %s", transformers_dst)
 
-            logger.info(
-                "💾 transformers.pkl saved at : %s",
-                transformers_dst,
-            )
-
-            # ───────────────────────────────────────────────
-            # Step 5 : MLflow + DagShub Setup
-            # ───────────────────────────────────────────────
-
+            # ── Step 5 : MLflow + DagShub Setup ─────────────
             dagshub_token = os.getenv("DEEPSHIELD_TEST")
-
             if not dagshub_token:
-                raise EnvironmentError(
-                    "DEEPSHIELD_TEST env variable not found"
-                )
+                raise EnvironmentError("DEEPSHIELD_TEST env variable not found")
 
-            os.environ["MLFLOW_TRACKING_USERNAME"] = (
-                "kaushik-chariya"
-            )
-            os.environ["MLFLOW_TRACKING_PASSWORD"] = (
-                dagshub_token
-            )
+            os.environ["MLFLOW_TRACKING_USERNAME"] = "kaushik-chariya"
+            os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
+            # ✅ FIX: CI mein browser nahi hota.
+            # DAGSHUB_USER_TOKEN set karne se dagshub.init()
+            # OAuth browser flow skip karta hai aur
+            # directly token use karta hai.
+            os.environ["DAGSHUB_USER_TOKEN"] = dagshub_token
 
-            # ✅ FIX 1: dagshub.init() must be called so that
-            # the artifact store is properly configured.
-            # Without this, registered model versions have
-            # source='' and artifact downloads fail.
             try:
                 import dagshub
                 dagshub.init(
@@ -221,96 +130,47 @@ class ModelTrainer:
                 )
                 logger.info("✅ DagShub initialized successfully")
             except Exception as e:
-                raise EnvironmentError(
-                    f"Failed to initialize DagShub: {e}"
-                )
+                raise EnvironmentError(f"Failed to initialize DagShub: {e}")
 
             mlflow.set_tracking_uri(
                 "https://dagshub.com/kaushik-chariya/Deep-Shield-Mail.mlflow"
             )
-
             logger.info("✅ MLflow tracking URI configured")
 
-            # ✅ FIX: Experiment set karo start_run se pehle.
-            # Bina iske DagShub INVALID_PARAMETER_VALUE deta
-            # hai kyunki default experiment ID (0) DagShub pe
-            # exist nahi karta.
             mlflow.set_experiment("Deep-Shield-Mail-Spam-Classifier")
-
             logger.info("✅ MLflow experiment set")
 
-            # ───────────────────────────────────────────────
-            # Step 6 : Log Model to MLflow
-            # ───────────────────────────────────────────────
-
+            # ── Step 6 : Log Model to MLflow ────────────────
             with mlflow.start_run() as run:
-
                 logger.info("🚀 MLflow run started")
-
                 run_id = run.info.run_id
-
                 logger.info("🔥 MLflow Run ID : %s", run_id)
 
-                # ───────────────────────────────
-                # Log Parameters
-                # ───────────────────────────────
-
                 nb_cfg = self._params["model_trainer"]["naive_bayes"]
-
                 mlflow.log_param("alpha",     nb_cfg["alpha"])
                 mlflow.log_param("fit_prior", nb_cfg["fit_prior"])
 
-                # ───────────────────────────────
-                # Log + Register Model
-                # ✅ FIX 2: use MODEL_EVALUATION_MODEL_NAME
-                # from constants instead of a hardcoded string,
-                # so trainer and test always refer to the same
-                # model name in the registry.
-                # ───────────────────────────────
-
                 mlflow.sklearn.log_model(
                     sk_model=clf,
-                    artifact_path="model",
+                    name="model",
                     registered_model_name=MODEL_EVALUATION_MODEL_NAME,
                 )
+                logger.info("✅ MLflow model logged & registered as '%s'", MODEL_EVALUATION_MODEL_NAME)
 
-                logger.info(
-                    "✅ MLflow model logged & registered as '%s'",
-                    MODEL_EVALUATION_MODEL_NAME,
-                )
-
-                # ───────────────────────────────
-                # Log Transformers
-                # ───────────────────────────────
-
-                mlflow.log_artifact(
-                    local_path=transformers_dst,
-                    artifact_path="transformers",
-                )
-
-                logger.info(
-                    "✅ transformers.pkl logged successfully"
-                )
+                mlflow.log_artifact(local_path=transformers_dst, artifact_path="transformers")
+                logger.info("✅ transformers.pkl logged successfully")
 
             logger.info("=" * 60)
             logger.info("✅ MODEL TRAINER COMPLETED")
             logger.info("=" * 60)
 
             return ModelTrainerArtifact(
-                trained_model_file_path=(
-                    self.config.trained_model_file_path
-                ),
+                trained_model_file_path=self.config.trained_model_file_path,
                 metric_artifact=None,
             )
 
         except Exception as e:
-
-            logger.error(
-                "❌ Model Trainer Failed : %s",
-                str(e),
-                exc_info=True,
-            )
-
+            logger.error("❌ Model Trainer Failed : %s", str(e), exc_info=True)
             raise MyException(e, sys)
 
 
@@ -319,19 +179,15 @@ class ModelTrainer:
 # ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-
     transformation_artifact = DataTransformationArtifact(
         transformed_object_file_path=(
-            "artifact/data_transformation/"
-            "transformed_object/preprocessing.pkl"
+            "artifact/data_transformation/transformed_object/preprocessing.pkl"
         ),
         transformed_train_file_path=(
-            "artifact/data_transformation/"
-            "transformed/train.npy"
+            "artifact/data_transformation/transformed/train.npy"
         ),
         transformed_test_file_path=(
-            "artifact/data_transformation/"
-            "transformed/test.npy"
+            "artifact/data_transformation/transformed/test.npy"
         ),
     )
 
@@ -341,5 +197,4 @@ if __name__ == "__main__":
     )
 
     artifact = trainer.initiate_model_trainer()
-
     print(artifact)

@@ -46,6 +46,10 @@ class ModelEvaluation:
 
             os.environ["MLFLOW_TRACKING_USERNAME"] = "kaushik-chariya"
             os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
+            # ✅ FIX: CI mein browser nahi hota.
+            # DAGSHUB_USER_TOKEN set karne se dagshub.init()
+            # OAuth browser flow skip karta hai.
+            os.environ["DAGSHUB_USER_TOKEN"]       = dagshub_token
 
             # ✅ FIX: dagshub.init() zaroor chahiye MLflow calls se pehle.
             # Bina iske 401 Unauthorized aata hai kyunki MLflow

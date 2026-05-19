@@ -1,5 +1,5 @@
 {
-    "run_id": "64bce9e1dc924b7f95e6a29fee4eb8d3",
+    "run_id": "39fff23ef3a34fba8d9df89eeab341fe",
     "model_path": "model",
     "transformers_path": "transformers/transformers.pkl",
     "push_model": false,
