@@ -35,6 +35,20 @@ class TestModel(unittest.TestCase):
         os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
 
         # ───────────────────────────────────────────────────────
+        # DagShub Init (required for artifact path resolution)
+        # ───────────────────────────────────────────────────────
+        try:
+            import dagshub
+            dagshub.init(
+                repo_owner="kaushik-chariya",
+                repo_name="Deep-Shield-Mail",
+                mlflow=True
+            )
+            print("✅ DagShub initialized successfully")
+        except Exception as e:
+            raise EnvironmentError(f"Failed to initialize DagShub: {e}")
+
+        # ───────────────────────────────────────────────────────
         # MLflow Tracking URI
         # ───────────────────────────────────────────────────────
         mlflow.set_tracking_uri(
@@ -61,11 +75,14 @@ class TestModel(unittest.TestCase):
         client = mlflow.MlflowClient()
 
         # ───────────────────────────────────────────────────────
-        # Get Latest Model Version
+        # Get Latest Model Version (search_model_versions used
+        # instead of deprecated get_latest_versions)
         # ───────────────────────────────────────────────────────
         try:
-            latest_versions = client.get_latest_versions(
-                MODEL_EVALUATION_MODEL_NAME
+            latest_versions = client.search_model_versions(
+                filter_string=f"name='{MODEL_EVALUATION_MODEL_NAME}'",
+                order_by=["version_number DESC"],
+                max_results=1,
             )
 
             if not latest_versions:
@@ -77,10 +94,20 @@ class TestModel(unittest.TestCase):
             latest_version = latest_versions[0]
 
             version_number = latest_version.version
-            run_id = latest_version.run_id
+            run_id         = latest_version.run_id
+            source         = latest_version.source
 
             print(f"Latest Version : {version_number}")
             print(f"Run ID         : {run_id}")
+            print(f"Source         : {source}")
+
+            # Guard: catch empty artifact source early
+            if not source:
+                raise Exception(
+                    "Model version source is empty — the artifact path "
+                    "was not set correctly when the model was registered. "
+                    "Re-log and register the model inside an active MLflow run."
+                )
 
         except Exception as e:
             raise Exception(f"Failed to fetch model version: {e}")
@@ -172,8 +199,7 @@ class TestModel(unittest.TestCase):
         ]
 
         transformed = self.preprocessor.transform(sample)
-
-        prediction = self.model.predict(transformed)
+        prediction  = self.model.predict(transformed)
 
         self.assertEqual(
             int(prediction[0]),
@@ -190,8 +216,7 @@ class TestModel(unittest.TestCase):
         ]
 
         transformed = self.preprocessor.transform(sample)
-
-        prediction = self.model.predict(transformed)
+        prediction  = self.model.predict(transformed)
 
         self.assertEqual(
             int(prediction[0]),
@@ -211,12 +236,8 @@ class TestModel(unittest.TestCase):
             "Limited time offer! Claim your prize!"
         ]
 
-        transformed = self.preprocessor.transform(sample)
-
-        probabilities = self.sklearn_model.predict_proba(
-            transformed
-        )
-
+        transformed  = self.preprocessor.transform(sample)
+        probabilities = self.sklearn_model.predict_proba(transformed)
         spam_probability = float(probabilities[0][1])
 
         self.assertGreater(
@@ -236,12 +257,8 @@ class TestModel(unittest.TestCase):
             "before tomorrow's meeting."
         ]
 
-        transformed = self.preprocessor.transform(sample)
-
-        probabilities = self.sklearn_model.predict_proba(
-            transformed
-        )
-
+        transformed  = self.preprocessor.transform(sample)
+        probabilities = self.sklearn_model.predict_proba(transformed)
         spam_probability = float(probabilities[0][1])
 
         self.assertLess(
@@ -269,7 +286,6 @@ class TestModel(unittest.TestCase):
         ]
 
         transformed = self.preprocessor.transform(samples)
-
         predictions = self.model.predict(transformed)
 
         self.assertEqual(len(predictions), 4)

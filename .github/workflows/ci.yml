@@ -1,4 +1,5 @@
 name: CI Pipeline
+
 on:
   push:
     branches:
@@ -11,13 +12,14 @@ on:
 jobs:
   project-testing:
     runs-on: ubuntu-latest
+
     services:
       postgres:
         image: postgres:14
         env:
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_USER:     ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_DB:       ${{ secrets.POSTGRES_DB }}
         ports:
           - 5432:5432
         options: >-
@@ -27,14 +29,25 @@ jobs:
           --health-retries 5
 
     steps:
+      # ─────────────────────────────────────────────────────────
+      # 1. Checkout
+      # ─────────────────────────────────────────────────────────
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # ─────────────────────────────────────────────────────────
+      # 2. Python
+      # ─────────────────────────────────────────────────────────
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
+      # ─────────────────────────────────────────────────────────
+      # 3. Cache pip
+      # Note: actions/cache saves automatically after the job —
+      # do NOT add a duplicate cache step at the end.
+      # ─────────────────────────────────────────────────────────
       - name: Cache pip dependencies
         uses: actions/cache@v4
         with:
@@ -43,70 +56,121 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
+      # ─────────────────────────────────────────────────────────
+      # 4. Install dependencies
+      # FIX: added explicit dagshub install so dagshub.init()
+      # never fails with ModuleNotFoundError in CI.
+      # ─────────────────────────────────────────────────────────
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
           pip install -e .
-          pip install dvc dvc-s3
+          pip install dvc dvc-s3 dagshub
 
+      # ─────────────────────────────────────────────────────────
+      # 5. Seed PostgreSQL
+      # ─────────────────────────────────────────────────────────
       - name: Setup PostgreSQL data
         env:
           PGPASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
-          psql -h localhost -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }} -c "
-          CREATE TABLE IF NOT EXISTS emails (
-            text TEXT,
-            target INTEGER
-          );"
-          psql -h localhost -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }} -c "\COPY emails FROM 'data/emails.csv' CSV HEADER;"
+          psql -h localhost \
+               -U ${{ secrets.POSTGRES_USER }} \
+               -d ${{ secrets.POSTGRES_DB }} \
+               -c "CREATE TABLE IF NOT EXISTS emails (
+                     text   TEXT,
+                     target INTEGER
+                   );"
+          psql -h localhost \
+               -U ${{ secrets.POSTGRES_USER }} \
+               -d ${{ secrets.POSTGRES_DB }} \
+               -c "\COPY emails FROM 'data/emails.csv' CSV HEADER;"
 
+      # ─────────────────────────────────────────────────────────
+      # 6. DVC pipeline  (trains + registers model in MLflow)
+      # FIX: AWS env vars renamed to the names boto3 / the AWS
+      # SDK actually reads — AWS_ACCESS_KEY_ID and
+      # AWS_SECRET_ACCESS_KEY.  The old names were silently
+      # ignored, breaking S3 / DVC remote access.
+      # ─────────────────────────────────────────────────────────
       - name: Run DVC pipeline
         env:
-          DEEPSHIELD_TEST: ${{ secrets.DEEPSHIELD_TEST }}
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: 5432
-          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          AWS_ACCESS_KEY: ${{ secrets.AWS_ACCESS_KEY }}
-          AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-        run: |
-          dvc repro
+          DEEPSHIELD_TEST:       ${{ secrets.DEEPSHIELD_TEST }}
+          POSTGRES_HOST:         localhost
+          POSTGRES_PORT:         5432
+          POSTGRES_DB:           ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER:         ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD:     ${{ secrets.POSTGRES_PASSWORD }}
+          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY }}      # ← fixed name
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}      # ← fixed name
+          AWS_DEFAULT_REGION:    ${{ secrets.AWS_REGION }}          # ← fixed name
+        run: dvc repro
 
-      - name: Run model tests          # ← NAYA ADD
+      # ─────────────────────────────────────────────────────────
+      # 7. Model tests
+      # FIX: unittest cannot accept a file path argument.
+      # Use either:
+      #   python -m pytest tests/test_model.py -v        (pytest)
+      #   python -m unittest tests.test_model            (dot notation)
+      # We use pytest here as it produces richer output and is
+      # already pulled in by most ML requirements.txt files.
+      # ─────────────────────────────────────────────────────────
+      - name: Run model tests
         if: success()
         env:
           DEEPSHIELD_TEST: ${{ secrets.DEEPSHIELD_TEST }}
         run: |
-          python -m unittest tests/test_model.py
+          python -m pytest tests/test_model.py -v
 
-      - name: Promote model to production   # ← NAYA ADD
+      # ─────────────────────────────────────────────────────────
+      # 8. Promote model to production
+      # FIX: same AWS env var rename as step 6.
+      # ─────────────────────────────────────────────────────────
+      - name: Promote model to production
         if: success()
         env:
-          DEEPSHIELD_TEST: ${{ secrets.DEEPSHIELD_TEST }}
-          AWS_ACCESS_KEY: ${{ secrets.AWS_ACCESS_KEY }}
-          AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_KEY }}
-          AWS_BUCKET_NAME: deepshield-models
-          AWS_REGION: ${{ secrets.AWS_REGION }}
+          DEEPSHIELD_TEST:       ${{ secrets.DEEPSHIELD_TEST }}
+          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY }}      # ← fixed name
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}      # ← fixed name
+          AWS_DEFAULT_REGION:    ${{ secrets.AWS_REGION }}          # ← fixed name
+          AWS_BUCKET_NAME:       deepshield-models
         run: python scripts/promote_model.py
 
+      # ─────────────────────────────────────────────────────────
+      # 9. Flask health check
+      # FIX: replaced bare `sleep 5` with a retry loop.
+      # sleep 5 is often not enough for Python apps to bind —
+      # the loop retries every second for up to 30 s, then
+      # prints the app log so failures are easy to diagnose.
+      # ─────────────────────────────────────────────────────────
       - name: Spam check Flask app
         if: success()
         env:
-          DEEPSHIELD_TEST: ${{ secrets.DEEPSHIELD_TEST }}
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: 5432
-          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          DEEPSHIELD_TEST:   ${{ secrets.DEEPSHIELD_TEST }}
+          POSTGRES_HOST:     localhost
+          POSTGRES_PORT:     5432
+          POSTGRES_DB:       ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER:     ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
-          python serving/api/app.py &
-          sleep 5
-          curl --fail http://localhost:8000/health
+          python serving/api/app.py > /tmp/app.log 2>&1 &
+          APP_PID=$!
 
-      - name: Post Cache pip dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          echo "⏳ Waiting for Flask app to be ready..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/health > /dev/null; then
+              echo "✅ Flask app is up (attempt $i)"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "❌ Flask app did not start in 30 seconds"
+              echo "──── app.log ────"
+              cat /tmp/app.log
+              kill $APP_PID 2>/dev/null
+              exit 1
+            fi
+            sleep 1
+          done
+
+          curl --fail http://localhost:8000/health
+          kill $APP_PID 2>/dev/null

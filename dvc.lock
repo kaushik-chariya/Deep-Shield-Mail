@@ -123,8 +123,8 @@ stages:
       size: 995951520
     - path: src/components/model_trainer.py
       hash: md5
-      md5: b89cc8da9df18d2381c6638ce44c54b3
-      size: 6257
+      md5: 375cfd7bd00da2a476f380a7bbbc2fd2
+      size: 12710
     params:
       params.yaml:
         model_trainer.cross_validation.n_splits: 5
@@ -151,8 +151,8 @@ stages:
       size: 960966
     - path: src/components/model_evaluation.py
       hash: md5
-      md5: 50649613a1d59b784e752bf0efb9f8d2
-      size: 10476
+      md5: b02df11a35fb89c655b82ab1d587b868
+      size: 10748
     params:
       params.yaml:
         model_evaluation.experiment_name: Spam-Detection-NaiveBayes-v1
@@ -160,7 +160,7 @@ stages:
     outs:
     - path: reports/experiment_info.json
       hash: md5
-      md5: 749a404e6c2b5f7603f73445a416b668
+      md5: 27259027ecbd8b982e981b98093b3d6f
       size: 213
     - path: reports/metrics.json
       hash: md5
@@ -175,12 +175,12 @@ stages:
       size: 960966
     - path: reports/experiment_info.json
       hash: md5
-      md5: 749a404e6c2b5f7603f73445a416b668
+      md5: 27259027ecbd8b982e981b98093b3d6f
       size: 213
     - path: src/components/model_pusher.py
       hash: md5
-      md5: afbf69df927f583dcd04c3f0c33bb105
-      size: 5280
+      md5: 719d924d7008365d831c171b89c12c0a
+      size: 4137
     params:
       params.yaml:
         model_evaluation.model_name: Deep-Shield-Spam-Detector

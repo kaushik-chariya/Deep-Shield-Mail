@@ -47,6 +47,16 @@ class ModelEvaluation:
             os.environ["MLFLOW_TRACKING_USERNAME"] = "kaushik-chariya"
             os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
 
+            # ✅ FIX: dagshub.init() zaroor chahiye MLflow calls se pehle.
+            # Bina iske 401 Unauthorized aata hai kyunki MLflow
+            # DagShub ke saath properly authenticate nahi ho pata.
+            import dagshub
+            dagshub.init(
+                repo_owner="kaushik-chariya",
+                repo_name="Deep-Shield-Mail",
+                mlflow=True,
+            )
+
             mlflow.set_tracking_uri(
                 "https://dagshub.com/kaushik-chariya/Deep-Shield-Mail.mlflow"
             )
@@ -166,19 +176,16 @@ class ModelEvaluation:
                         mlflow.log_param(k, v)
 
                 # ── Step 5: Log model ──────────────────────────
-                # FIX: name="model" → artifact_path="model"
-                # name="" → MLflow registry mein path='' store hota tha → CI crash
-                # artifact_path="model" → sahi path store hota hai → load hoga ✅
                 input_example = X_test[:5]
                 signature     = infer_signature(X_test, clf.predict(X_test))
 
                 mlflow.sklearn.log_model(
                     sk_model      = clf,
-                    name = "model",        # ← FIXED (was: name="model")
+                    name          = "model",
                     signature     = signature,
                     input_example = input_example,
                 )
-                logger.info("✅ clf logged to MLflow (artifact_path='model')")
+                logger.info("✅ clf logged to MLflow (name='model')")
 
                 # ── Step 6: Log transformers.pkl ───────────────
                 mlflow.log_artifact(

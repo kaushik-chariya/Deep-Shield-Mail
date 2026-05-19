@@ -6,3 +6,6 @@ local_s3/
 
 __pycache__/
 *.pyc
+logs/
+artifact/
+mlruns/
