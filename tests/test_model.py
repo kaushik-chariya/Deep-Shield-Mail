@@ -199,7 +199,7 @@ class TestModel(unittest.TestCase):
             "Click here to claim your reward now!"
         ]
 
-        transformed = self.preprocessor.transform(sample)
+        transformed = self.preprocessor["vectorizer"].transform(sample)
         prediction  = self.model.predict(transformed)
 
         self.assertEqual(
@@ -216,7 +216,7 @@ class TestModel(unittest.TestCase):
             "before tomorrow's meeting."
         ]
 
-        transformed = self.preprocessor.transform(sample)
+        transformed = self.preprocessor["vectorizer"].transform(sample)
         prediction  = self.model.predict(transformed)
 
         self.assertEqual(
