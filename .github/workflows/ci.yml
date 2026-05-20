@@ -106,7 +106,7 @@ jobs:
           AWS_DEFAULT_REGION:    ${{ secrets.AWS_REGION }}          # ← fixed name
         run: dvc repro
 
-      # ─────────────────────────────────────────────────────────
+      # ───────────────────────── ────────────────────────────────
       # 7. Model tests
       # FIX: unittest cannot accept a file path argument.
       # Use either:
