@@ -15,6 +15,9 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
+TRACKING_URI = "https://dagshub.com/kaushik-chariya/Deep-Shield-Mail.mlflow"
+
+
 class ModelPusher:
 
     def __init__(self):
@@ -28,10 +31,9 @@ class ModelPusher:
 
             os.environ["MLFLOW_TRACKING_USERNAME"] = "kaushik-chariya"
             os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
+            os.environ["MLFLOW_TRACKING_URI"]      = TRACKING_URI
 
-            mlflow.set_tracking_uri(
-                "https://dagshub.com/kaushik-chariya/Deep-Shield-Mail.mlflow"
-            )
+            mlflow.set_tracking_uri(TRACKING_URI)
             logger.info("ModelPusher: DagsHub + MLflow initialized ✅")
 
         except Exception as e:
@@ -61,9 +63,10 @@ class ModelPusher:
 
             logger.info("New score  : %.4f", new_score)
             logger.info("Best score : %.4f", best_score)
+            logger.info("Run ID     : %s",   run_id)
             logger.info("Model URI  : %s",   source_uri)
 
-            client = MlflowClient()
+            client = MlflowClient(tracking_uri=TRACKING_URI)  # ← FIX
 
             try:
                 client.create_registered_model(MODEL_EVALUATION_MODEL_NAME)

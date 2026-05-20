@@ -38,18 +38,29 @@ class TestModel(unittest.TestCase):
                 "DEEPSHIELD_TEST environment variable not set"
             )
 
-        # Credentials ko env mein set karo PEHLE tracking URI set karne se
-        os.environ["MLFLOW_TRACKING_USERNAME"] = "kaushik-chariya"
-        os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
-
         # ───────────────────────────────────────────────────────
-        # MLflow Tracking URI — credentials URI mein embed karo
-        # taaki MLflow store cache se pehle hi auth mile
+        # MLflow Tracking URI — pehle define karo
         # ───────────────────────────────────────────────────────
         tracking_uri = (
             f"https://kaushik-chariya:{dagshub_token}"
             "@dagshub.com/kaushik-chariya/Deep-Shield-Mail.mlflow"
         )
+
+        # Saare env vars set karo
+        os.environ["MLFLOW_TRACKING_USERNAME"] = "kaushik-chariya"
+        os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
+        os.environ["MLFLOW_TRACKING_URI"] = tracking_uri  # ← FIX
+        os.environ["DAGSHUB_USER_TOKEN"]       = dagshub_token
+
+        import dagshub                                           # ← ADD
+        dagshub.init(                                            # ← ADD
+        repo_owner="kaushik-chariya",                        # ← ADD
+        repo_name="Deep-Shield-Mail",                        # ← ADD
+        mlflow=True,                                         # ← ADD
+)                                                        # ← ADD
+
+        mlflow.set_tracking_uri(tracking_uri)
+
 
         mlflow.set_tracking_uri(tracking_uri)
 
@@ -70,17 +81,15 @@ class TestModel(unittest.TestCase):
         # Get Latest Model Version
         # ───────────────────────────────────────────────────────
         latest_version = client.get_model_version_by_alias(
-    MODEL_EVALUATION_MODEL_NAME,
-    MODEL_PUSHER_ALIAS
-)
+            MODEL_EVALUATION_MODEL_NAME,
+            MODEL_PUSHER_ALIAS
+        )
 
         if not latest_version:
             raise Exception(
-        f"No versions found for model: "
-        f"{MODEL_EVALUATION_MODEL_NAME}"
-    )
-
-        # latest_version = latest_version[0]
+                f"No versions found for model: "
+                f"{MODEL_EVALUATION_MODEL_NAME}"
+            )
 
         version_number = latest_version.version
         run_id         = latest_version.run_id

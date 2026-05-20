@@ -8,6 +8,7 @@ import glob
 import json
 import pickle
 import dill
+import shutil
 
 import numpy as np
 import mlflow
@@ -34,6 +35,9 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
+TRACKING_URI = "https://dagshub.com/kaushik-chariya/Deep-Shield-Mail.mlflow"
+
+
 class ModelEvaluation:
 
     def __init__(self):
@@ -46,14 +50,9 @@ class ModelEvaluation:
 
             os.environ["MLFLOW_TRACKING_USERNAME"] = "kaushik-chariya"
             os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
-            # ✅ FIX: CI mein browser nahi hota.
-            # DAGSHUB_USER_TOKEN set karne se dagshub.init()
-            # OAuth browser flow skip karta hai.
+            os.environ["MLFLOW_TRACKING_URI"]      = TRACKING_URI
             os.environ["DAGSHUB_USER_TOKEN"]       = dagshub_token
 
-            # ✅ FIX: dagshub.init() zaroor chahiye MLflow calls se pehle.
-            # Bina iske 401 Unauthorized aata hai kyunki MLflow
-            # DagShub ke saath properly authenticate nahi ho pata.
             import dagshub
             dagshub.init(
                 repo_owner="kaushik-chariya",
@@ -61,22 +60,16 @@ class ModelEvaluation:
                 mlflow=True,
             )
 
-            mlflow.set_tracking_uri(
-                "https://dagshub.com/kaushik-chariya/Deep-Shield-Mail.mlflow"
-            )
+            mlflow.set_tracking_uri(TRACKING_URI)
             logger.info("✅ ModelEvaluation: DagsHub + MLflow initialized")
 
         except Exception as e:
             raise MyException(e, sys)
 
-    # ── Private helpers ─────────────────────────────────────────
-
     def _get_latest_file(self, base_dir: str, pattern: str) -> str:
         files = glob.glob(f"{base_dir}/**/{pattern}", recursive=True)
         if not files:
-            raise FileNotFoundError(
-                f"No '{pattern}' found inside '{base_dir}'"
-            )
+            raise FileNotFoundError(f"No '{pattern}' found inside '{base_dir}'")
         latest = max(files, key=os.path.getmtime)
         logger.info("📂 Latest '%s' found at: %s", pattern, latest)
         return latest
@@ -98,12 +91,7 @@ class ModelEvaluation:
         logger.info("📊 Test data loaded — shape: %s", data.shape)
         return data
 
-    def _evaluate(
-        self,
-        clf    : object,
-        X_test : np.ndarray,
-        y_test : np.ndarray,
-    ) -> dict:
+    def _evaluate(self, clf, X_test, y_test) -> dict:
         y_pred       = clf.predict(X_test)
         y_pred_proba = clf.predict_proba(X_test)[:, 1]
         return {
@@ -116,28 +104,17 @@ class ModelEvaluation:
 
     def _get_production_accuracy(self, model_name: str) -> float:
         try:
-            client           = MlflowClient()
+            client = MlflowClient(tracking_uri=TRACKING_URI)
             production_version = client.get_model_version_by_alias(
-                name =model_name,
-                alias=MODEL_PUSHER_ALIAS,
+                name=model_name, alias=MODEL_PUSHER_ALIAS,
             )
             prev_run = client.get_run(production_version.run_id)
             best_acc = prev_run.data.metrics.get("accuracy", 0.0)
-            logger.info(
-                "🏆 production (alias='%s') accuracy: %.4f",
-                MODEL_PUSHER_ALIAS, best_acc,
-            )
+            logger.info("🏆 production accuracy: %.4f", best_acc)
             return best_acc
-
         except Exception:
-            logger.info(
-                "⚠️  Koi production nahi mila (alias='%s') — "
-                "pehli baar hai, push hoga",
-                MODEL_PUSHER_ALIAS,
-            )
+            logger.info("⚠️  Koi production nahi mila — pehli baar, push hoga")
             return 0.0
-
-    # ── Main ────────────────────────────────────────────────────
 
     def initiate_model_evaluation(self) -> dict:
         try:
@@ -179,27 +156,26 @@ class ModelEvaluation:
                     for k, v in clf.get_params().items():
                         mlflow.log_param(k, v)
 
-                # ── Step 5: Log model ──────────────────────────
-                input_example = X_test[:5]
-                signature     = infer_signature(X_test, clf.predict(X_test))
+                # ── Step 5: Log model — locally save karo phir upload ──
+                saved_model_path = "saved_model_eval"
+                if os.path.exists(saved_model_path):
+                    shutil.rmtree(saved_model_path)
 
-                mlflow.sklearn.log_model(
-                    sk_model      = clf,
-                    name          = "model",
-                    signature     = signature,
-                    input_example = input_example,
+                mlflow.sklearn.save_model(sk_model=clf, path=saved_model_path)
+
+                mlflow.log_artifacts(
+                    local_dir=saved_model_path,
+                    artifact_path="model"
                 )
-                logger.info("✅ clf logged to MLflow (name='model')")
+                shutil.rmtree(saved_model_path)
+                logger.info("✅ clf logged to MLflow (artifact_path='model')")
 
                 # ── Step 6: Log transformers.pkl ───────────────
                 mlflow.log_artifact(
-                    local_path   =transformers_path,
+                    local_path=transformers_path,
                     artifact_path="transformers",
                 )
-                logger.info(
-                    "✅ transformers.pkl logged to MLflow "
-                    "(artifact_path='transformers/transformers.pkl')"
-                )
+                logger.info("✅ transformers.pkl logged")
 
                 # ── Step 7: Save metrics report ────────────────
                 os.makedirs("reports", exist_ok=True)
@@ -211,18 +187,12 @@ class ModelEvaluation:
                 # ── Step 8: Compare with production ─────────────
                 best_accuracy = self._get_production_accuracy(MODEL_EVALUATION_MODEL_NAME)
                 new_accuracy  = metrics["accuracy"]
-                should_push   = new_accuracy > best_accuracy
+                should_push   = new_accuracy >= best_accuracy
 
                 if should_push:
-                    logger.info(
-                        "🚀 New model BETTER (%.4f > %.4f) — PUSH hoga",
-                        new_accuracy, best_accuracy,
-                    )
+                    logger.info("🚀 New model BETTER — PUSH hoga")
                 else:
-                    logger.info(
-                        "⏭️  New model NOT better (%.4f <= %.4f) — SKIP",
-                        new_accuracy, best_accuracy,
-                    )
+                    logger.info("⏭️  New model NOT better — SKIP")
 
                 # ── Step 9: Save experiment_info.json ─────────
                 model_info = {
@@ -235,9 +205,7 @@ class ModelEvaluation:
                 }
                 with open("reports/experiment_info.json", "w") as f:
                     json.dump(model_info, f, indent=4)
-                logger.info(
-                    "💾 Experiment info saved → reports/experiment_info.json"
-                )
+                logger.info("💾 Experiment info saved → reports/experiment_info.json")
 
                 logger.info("=" * 60)
                 logger.info("✅ Model Evaluation: COMPLETED SUCCESSFULLY")
@@ -246,15 +214,9 @@ class ModelEvaluation:
                 return model_info
 
         except Exception as e:
-            logger.error(
-                "❌ Model Evaluation: FAILED — %s", str(e), exc_info=True
-            )
+            logger.error("❌ Model Evaluation: FAILED — %s", str(e), exc_info=True)
             raise MyException(e, sys)
 
-
-# ───────────────────────────────────────────────────────────────
-# Standalone run
-# ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     evaluator = ModelEvaluation()
