@@ -115,7 +115,7 @@ def setup_mlflow() -> MlflowClient:
 
     os.environ["MLFLOW_TRACKING_USERNAME"] = "kaushik-chariya"
     os.environ["MLFLOW_TRACKING_PASSWORD"] = dagshub_token
-
+    os.environ["DAGSHUB_USER_TOKEN"] = dagshub_token
     # ✅ FIX 1: dagshub.init() required so MLflow can resolve
     # artifact paths and write to the registry correctly.
     try:
