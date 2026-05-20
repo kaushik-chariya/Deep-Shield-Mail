@@ -60,7 +60,7 @@ PREPROC_PATH = os.path.join(
 )
 
 # ── S3 ─────────────────────────────────────────────────────────
-S3_BUCKET      = os.getenv("AWS_BUCKET_NAME", "deepshield-models")
+S3_BUCKET      = os.getenv("AWS_BUCKET_NAME", "email-bucket-mlops")
 S3_MODEL_KEY   = "production/model.pkl"
 S3_PREPROC_KEY = "production/preprocessing.pkl"
 

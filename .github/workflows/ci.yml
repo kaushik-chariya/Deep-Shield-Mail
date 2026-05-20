@@ -133,7 +133,7 @@ jobs:
           AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY }}      # ← fixed name
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}      # ← fixed name
           AWS_DEFAULT_REGION:    ${{ secrets.AWS_REGION }}          # ← fixed name
-          AWS_BUCKET_NAME:       deepshield-models
+          AWS_BUCKET_NAME:   ${{ secrets.AWS_BUCKET_NAME }}
         run: python scripts/promote_model.py
 
       # ─────────────────────────────────────────────────────────
