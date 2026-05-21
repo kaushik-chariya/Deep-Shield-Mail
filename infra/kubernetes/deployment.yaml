@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deep-shield-mail
+  labels:
+    app: deep-shield-mail
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: deep-shield-mail
+  template:
+    metadata:
+      labels:
+        app: deep-shield-mail
+    spec:
+      containers:
+      - name: deep-shield-mail
+        image: 020866158197.dkr.ecr.us-east-1.amazonaws.com/flask-app:latest
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "1"
+        env:
+        - name: DEEPSHIELD_TEST
+          valueFrom:
+            secretKeyRef:
+              name: deepshield-secret
+              key: DEEPSHIELD_TEST
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deep-shield-mail-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: deep-shield-mail
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8000
+      targetPort: 8000
