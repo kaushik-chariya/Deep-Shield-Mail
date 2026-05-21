@@ -45,8 +45,6 @@ jobs:
 
       # ─────────────────────────────────────────────────────────
       # 3. Cache pip
-      # Note: actions/cache saves automatically after the job —
-      # do NOT add a duplicate cache step at the end.
       # ─────────────────────────────────────────────────────────
       - name: Cache pip dependencies
         uses: actions/cache@v4
@@ -58,8 +56,6 @@ jobs:
 
       # ─────────────────────────────────────────────────────────
       # 4. Install dependencies
-      # FIX: added explicit dagshub install so dagshub.init()
-      # never fails with ModuleNotFoundError in CI.
       # ─────────────────────────────────────────────────────────
       - name: Install dependencies
         run: |
@@ -87,11 +83,7 @@ jobs:
                -c "\COPY emails FROM 'data/emails.csv' CSV HEADER;"
 
       # ─────────────────────────────────────────────────────────
-      # 6. DVC pipeline  (trains + registers model in MLflow)
-      # FIX: AWS env vars renamed to the names boto3 / the AWS
-      # SDK actually reads — AWS_ACCESS_KEY_ID and
-      # AWS_SECRET_ACCESS_KEY.  The old names were silently
-      # ignored, breaking S3 / DVC remote access.
+      # 6. DVC pipeline
       # ─────────────────────────────────────────────────────────
       - name: Run DVC pipeline
         env:
@@ -101,19 +93,13 @@ jobs:
           POSTGRES_DB:           ${{ secrets.POSTGRES_DB }}
           POSTGRES_USER:         ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD:     ${{ secrets.POSTGRES_PASSWORD }}
-          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY }}      # ← fixed name
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}      # ← fixed name
-          AWS_DEFAULT_REGION:    ${{ secrets.AWS_REGION }}          # ← fixed name
+          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+          AWS_DEFAULT_REGION:    ${{ secrets.AWS_REGION }}
         run: dvc repro
 
-      # ───────────────────────── ────────────────────────────────
+      # ─────────────────────────────────────────────────────────
       # 7. Model tests
-      # FIX: unittest cannot accept a file path argument.
-      # Use either:
-      #   python -m pytest tests/test_model.py -v        (pytest)
-      #   python -m unittest tests.test_model            (dot notation)
-      # We use pytest here as it produces richer output and is
-      # already pulled in by most ML requirements.txt files.
       # ─────────────────────────────────────────────────────────
       - name: Run model tests
         if: success()
@@ -124,29 +110,28 @@ jobs:
 
       # ─────────────────────────────────────────────────────────
       # 8. Promote model to production
-      # FIX: same AWS env var rename as step 6.
+      # FIX: सिर्फ master branch पर promote होगा
       # ─────────────────────────────────────────────────────────
       - name: Promote model to production
-        if: success()
+        if: success() && github.ref == 'refs/heads/master'
         env:
           DEEPSHIELD_TEST:       ${{ secrets.DEEPSHIELD_TEST }}
-          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY }}      # ← fixed name
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}      # ← fixed name
-          AWS_DEFAULT_REGION:    ${{ secrets.AWS_REGION }}          # ← fixed name
-          AWS_BUCKET_NAME:   ${{ secrets.AWS_BUCKET_NAME }}
+          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+          AWS_DEFAULT_REGION:    ${{ secrets.AWS_REGION }}
+          AWS_BUCKET_NAME:       ${{ secrets.AWS_BUCKET_NAME }}
         run: python scripts/promote_model.py
 
       # ─────────────────────────────────────────────────────────
       # 9. Flask health check
-      # FIX: replaced bare `sleep 5` with a retry loop.
-      # sleep 5 is often not enough for Python apps to bind —
-      # the loop retries every second for up to 30 s, then
-      # prints the app log so failures are easy to diagnose.
+      # FIX: /health route ab app.py mein exist karta hai.
+      #      FLASK_DEBUG=0 → debug reloader band, watchdog nahi chalega.
       # ─────────────────────────────────────────────────────────
       - name: Spam check Flask app
         if: success()
         env:
           DEEPSHIELD_TEST:   ${{ secrets.DEEPSHIELD_TEST }}
+          FLASK_DEBUG:       "0"
           POSTGRES_HOST:     localhost
           POSTGRES_PORT:     5432
           POSTGRES_DB:       ${{ secrets.POSTGRES_DB }}
@@ -172,5 +157,19 @@ jobs:
             sleep 1
           done
 
+          # /health check
           curl --fail http://localhost:8000/health
+
+          # /api/predict/manual endpoint test
+          curl --fail -X POST http://localhost:8000/api/predict/manual \
+            -H "Content-Type: application/json" \
+            -d '{"raw": "Congratulations! You have won a free prize. Click here now."}' \
+            | python -c "
+          import sys, json
+          r = json.load(sys.stdin)
+          print('Prediction result:', r)
+          assert 'prediction' in r, 'prediction key missing in response'
+          print('✅ /api/predict/manual working correctly')
+          "
+
           kill $APP_PID 2>/dev/null

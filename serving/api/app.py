@@ -83,6 +83,12 @@ def login_required(f):
 # Routes
 # ═══════════════════════════════════════════════════════════════
 
+# ── Health check (used by CI / load-balancers) ──────────────────
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok"}), 200
+
+
 # ── Landing ─────────────────────────────────────────────────────
 @app.route("/")
 def index():
@@ -324,4 +330,8 @@ def logout():
 
 if __name__ == "__main__":
     from constants import APP_HOST, APP_PORT
-    app.run(host=APP_HOST, port=APP_PORT, debug=os.getenv("FLASK_DEBUG", "0") == "1")
+    app.run(
+        host=APP_HOST,
+        port=APP_PORT,
+        debug=os.getenv("FLASK_DEBUG", "0") == "1",  # CI में FLASK_DEBUG set नहीं होगा → False
+    )
