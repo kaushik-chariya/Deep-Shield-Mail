@@ -213,7 +213,7 @@ jobs:
         run: docker info
 
       # ─────────────────────────────────────────────────────────
-      # 14. Push Docker image to ECR
+      # 14. Push Docker image to. ECR 
       # ─────────────────────────────────────────────────────────
       - name: Push Docker image to ECR
         if: success() && github.ref == 'refs/heads/master'
