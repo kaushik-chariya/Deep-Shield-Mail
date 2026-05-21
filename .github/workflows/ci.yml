@@ -5,9 +5,13 @@ on:
     branches:
       - master
       - dev
+
   pull_request:
     branches:
       - master
+
+env:
+  CLUSTER_NAME: flask-final
 
 jobs:
   project-testing:
@@ -17,9 +21,9 @@ jobs:
       postgres:
         image: postgres:14
         env:
-          POSTGRES_USER:     ${{ secrets.POSTGRES_USER }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB:       ${{ secrets.POSTGRES_DB }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
         ports:
           - 5432:5432
         options: >-
@@ -29,14 +33,24 @@ jobs:
           --health-retries 5
 
     steps:
+
+      # =========================================
+      # Checkout Code
+      # =========================================
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # =========================================
+      # Setup Python
+      # =========================================
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
+      # =========================================
+      # Cache pip dependencies
+      # =========================================
       - name: Cache pip dependencies
         uses: actions/cache@v4
         with:
@@ -45,41 +59,59 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
+      # =========================================
+      # Install Dependencies
+      # =========================================
       - name: Install dependencies
         run: |
+          pip install --upgrade pip
           pip install -r requirements.txt
           pip install -e .
           pip install dvc dvc-s3 dagshub
 
+      # =========================================
+      # Setup PostgreSQL Data
+      # =========================================
       - name: Setup PostgreSQL data
         env:
           PGPASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
+
           psql -h localhost \
                -U ${{ secrets.POSTGRES_USER }} \
                -d ${{ secrets.POSTGRES_DB }} \
                -c "CREATE TABLE IF NOT EXISTS emails (
-                     text   TEXT,
+                     text TEXT,
                      target INTEGER
                    );"
+
           psql -h localhost \
                -U ${{ secrets.POSTGRES_USER }} \
                -d ${{ secrets.POSTGRES_DB }} \
                -c "\COPY emails FROM 'data/emails.csv' CSV HEADER;"
 
+      # =========================================
+      # Run DVC Pipeline
+      # =========================================
       - name: Run DVC pipeline
         env:
-          DEEPSHIELD_TEST:       ${{ secrets.DEEPSHIELD_TEST }}
-          POSTGRES_HOST:         localhost
-          POSTGRES_PORT:         5432
-          POSTGRES_DB:           ${{ secrets.POSTGRES_DB }}
-          POSTGRES_USER:         ${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD:     ${{ secrets.POSTGRES_PASSWORD }}
-          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
-          AWS_DEFAULT_REGION:    ${{ secrets.AWS_REGION }}
-        run: dvc repro
+          DEEPSHIELD_TEST: ${{ secrets.DEEPSHIELD_TEST }}
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
 
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
+
+        run: |
+          dvc repro
+
+      # =========================================
+      # Run Model Tests
+      # =========================================
       - name: Run model tests
         if: success()
         env:
@@ -87,63 +119,81 @@ jobs:
         run: |
           python -m pytest tests/test_model.py -v
 
+      # =========================================
+      # Promote Model
+      # =========================================
       - name: Promote model to production
         if: success() && github.ref == 'refs/heads/master'
         env:
-          DEEPSHIELD_TEST:       ${{ secrets.DEEPSHIELD_TEST }}
-          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
-          AWS_DEFAULT_REGION:    ${{ secrets.AWS_REGION }}
-          AWS_BUCKET_NAME:       ${{ secrets.AWS_BUCKET_NAME }}
-        run: python scripts/promote_model.py
+          DEEPSHIELD_TEST: ${{ secrets.DEEPSHIELD_TEST }}
 
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
+
+          AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
+
+        run: |
+          python scripts/promote_model.py
+
+      # =========================================
+      # Flask App Testing
+      # =========================================
       - name: Spam check Flask app
         if: success()
         env:
-          DEEPSHIELD_TEST:   ${{ secrets.DEEPSHIELD_TEST }}
-          FLASK_DEBUG:       "0"
-          POSTGRES_HOST:     localhost
-          POSTGRES_PORT:     5432
-          POSTGRES_DB:       ${{ secrets.POSTGRES_DB }}
-          POSTGRES_USER:     ${{ secrets.POSTGRES_USER }}
+          DEEPSHIELD_TEST: ${{ secrets.DEEPSHIELD_TEST }}
+
+          FLASK_DEBUG: "0"
+
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+
         run: |
+
           python serving/api/app.py > /tmp/app.log 2>&1 &
           APP_PID=$!
 
-          echo "⏳ Waiting for Flask app to be ready..."
+          echo "⏳ Waiting for Flask app..."
+
           for i in $(seq 1 30); do
+
             if curl -sf http://localhost:8000/health > /dev/null; then
-              echo "✅ Flask app is up (attempt $i)"
+              echo "✅ Flask app running"
               break
             fi
+
             if [ $i -eq 30 ]; then
-              echo "❌ Flask app did not start in 30 seconds"
-              echo "──── app.log ────"
+              echo "❌ Flask app failed"
               cat /tmp/app.log
               kill $APP_PID 2>/dev/null
               exit 1
             fi
+
             sleep 1
           done
 
           curl --fail http://localhost:8000/health
 
-          curl --fail -X POST http://localhost:8000/api/predict/manual \
+          curl --fail -X POST \
+            http://localhost:8000/api/predict/manual \
             -H "Content-Type: application/json" \
-            -d '{"raw": "Congratulations! You have won a free prize. Click here now."}' \
+            -d '{"raw":"Congratulations! You won a free prize!"}' \
             | python -c "
           import sys, json
-          r = json.load(sys.stdin)
-          print('Prediction result:', r)
-          assert 'prediction' in r, 'prediction key missing in response'
-          print('✅ /api/predict/manual working correctly')
+          r=json.load(sys.stdin)
+          print(r)
+          assert 'prediction' in r
           "
 
           kill $APP_PID 2>/dev/null
 
-      # ==================== AWS & EKS DEPLOYMENT ====================
-      
+      # =========================================
+      # Configure AWS Credentials
+      # =========================================
       - name: Configure AWS credentials
         if: success() && github.ref == 'refs/heads/master'
         uses: aws-actions/configure-aws-credentials@v4
@@ -152,67 +202,137 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      # =========================================
+      # Verify AWS Identity
+      # =========================================
+      - name: Verify AWS identity
+        if: success() && github.ref == 'refs/heads/master'
+        run: |
+          aws sts get-caller-identity
+
+      # =========================================
+      # Login to Amazon ECR
+      # =========================================
       - name: Login to AWS ECR
         if: success() && github.ref == 'refs/heads/master'
         run: |
-          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | \
-            docker login --username AWS --password-stdin \
+
+          aws ecr get-login-password \
+            --region ${{ secrets.AWS_REGION }} | \
+            docker login \
+            --username AWS \
+            --password-stdin \
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
 
+      # =========================================
+      # Build Docker Image
+      # =========================================
       - name: Build Docker image
         if: success() && github.ref == 'refs/heads/master'
         run: |
-          docker build -t ${{ secrets.ECR_REPOSITORY }}:latest .
 
+          docker build \
+            -t ${{ secrets.ECR_REPOSITORY }}:latest .
+
+      # =========================================
+      # Tag Docker Image
+      # =========================================
       - name: Tag Docker image
         if: success() && github.ref == 'refs/heads/master'
         run: |
-          docker tag ${{ secrets.ECR_REPOSITORY }}:latest \
+
+          docker tag \
+            ${{ secrets.ECR_REPOSITORY }}:latest \
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:latest
 
+      # =========================================
+      # Push Docker Image
+      # =========================================
       - name: Push Docker image to ECR
         if: success() && github.ref == 'refs/heads/master'
         run: |
+
           docker push \
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:latest
 
+      # =========================================
+      # Install kubectl
+      # =========================================
       - name: Set up kubectl
         if: success() && github.ref == 'refs/heads/master'
         uses: azure/setup-kubectl@v4
         with:
-          version: 'latest'
+          version: latest
 
+      # =========================================
+      # Update kubeconfig
+      # =========================================
       - name: Update kubeconfig for EKS
         if: success() && github.ref == 'refs/heads/master'
         run: |
+
           aws eks update-kubeconfig \
             --region ${{ secrets.AWS_REGION }} \
             --name flask-final
 
+          kubectl config current-context
+
+      # =========================================
+      # Verify EKS Access
+      # =========================================
       - name: Verify EKS cluster access
         if: success() && github.ref == 'refs/heads/master'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
+
         run: |
-          # Test cluster access
+
+          aws sts get-caller-identity
+
           kubectl cluster-info
+
           kubectl get nodes
+
           kubectl get namespaces
 
+      # =========================================
+      # Create Kubernetes Secret
+      # =========================================
       - name: Create Kubernetes secret
         if: success() && github.ref == 'refs/heads/master'
         run: |
+
+          kubectl delete secret deepshield-secret \
+            --ignore-not-found
+
           kubectl create secret generic deepshield-secret \
-            --from-literal=DEEPSHIELD_TEST=${{ secrets.DEEPSHIELD_TEST }} \
+            --from-literal=DEEPSHIELD_TEST="${{ secrets.DEEPSHIELD_TEST }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
+      # =========================================
+      # Deploy to EKS
+      # =========================================
       - name: Deploy to EKS
         if: success() && github.ref == 'refs/heads/master'
         run: |
-          kubectl apply -f infra/kubernetes/deployment.yaml
-          kubectl rollout status deployment/deep-shield-mail --timeout=120s
 
+          kubectl apply -f infra/kubernetes/deployment.yaml
+
+          kubectl rollout status \
+            deployment/deep-shield-mail \
+            --timeout=120s
+
+      # =========================================
+      # Verify Deployment
+      # =========================================
       - name: Verify deployment
         if: success() && github.ref == 'refs/heads/master'
         run: |
+
           echo "✅ Deployment completed successfully!"
+
           kubectl get pods -l app=deep-shield-mail
+
           kubectl get svc -l app=deep-shield-mail
