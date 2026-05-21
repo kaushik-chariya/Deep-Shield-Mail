@@ -187,6 +187,10 @@ class ModelTrainer:
 
             try:
                 import dagshub
+                import dagshub.auth
+
+                # ── FIX: force dagshub to use our token directly ──
+                dagshub.auth.add_app_token(token=dagshub_token)
 
                 dagshub.init(
                     repo_owner="kaushik-chariya",
@@ -330,4 +334,3 @@ if __name__ == "__main__":
     )
 
     artifact = trainer.initiate_model_trainer()
-

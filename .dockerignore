@@ -23,6 +23,15 @@ data/
 
 local_s3/
 
-artifact/*
+# Ignore ALL artifacts
+artifact/**
+
+# Keep ONLY required inference files
 !artifact/model_trainer/
 !artifact/model_trainer/trained_model/
+!artifact/model_trainer/trained_model/model.pkl
+!artifact/model_trainer/trained_model/transformers.pkl
+
+!artifact/data_transformation/
+!artifact/data_transformation/transformed_object/
+!artifact/data_transformation/transformed_object/preprocessing.pkl

@@ -1,0 +1,21 @@
+# Deep Shield Mail — Email Integration Requirements
+# Install with: pip install -r requirements_email.txt
+
+# ── Flask ────────────────────────────────────────────────────────
+flask>=3.0.0
+python-dotenv>=1.0.0
+
+# ── Gmail OAuth2 ─────────────────────────────────────────────────
+google-auth>=2.28.0
+google-auth-oauthlib>=1.2.0
+google-auth-httplib2>=0.2.0
+google-api-python-client>=2.122.0
+
+# ── Outlook / Microsoft OAuth2 ───────────────────────────────────
+msal>=1.28.0
+requests>=2.31.0
+
+# ── Session management (production) ─────────────────────────────
+# Uncomment if using Redis-backed sessions on AWS/GCP/Azure:
+# flask-session>=0.6.0
+# redis>=5.0.0
