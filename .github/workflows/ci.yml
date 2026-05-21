@@ -199,5 +199,5 @@ jobs:
           echo "========== SERVICES =========="
           kubectl get svc
 
-          echo "========== DEPLOYMENTS =========="
+          echo "========== DEPLOYMENTS ========== "
           kubectl get deployments
