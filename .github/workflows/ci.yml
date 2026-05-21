@@ -30,13 +30,13 @@ jobs:
 
     steps:
       # ─────────────────────────────────────────────────────────
-      # 1. Checkout
+      # 1. Checkout code
       # ─────────────────────────────────────────────────────────
       - name: Checkout code
         uses: actions/checkout@v4
 
       # ─────────────────────────────────────────────────────────
-      # 2. Python
+      # 2. Setup Python
       # ─────────────────────────────────────────────────────────
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -44,7 +44,7 @@ jobs:
           python-version: '3.10'
 
       # ─────────────────────────────────────────────────────────
-      # 3. Cache pip
+      # 3. Cache pip dependencies
       # ─────────────────────────────────────────────────────────
       - name: Cache pip dependencies
         uses: actions/cache@v4
@@ -64,7 +64,7 @@ jobs:
           pip install dvc dvc-s3 dagshub
 
       # ─────────────────────────────────────────────────────────
-      # 5. Seed PostgreSQL
+      # 5. Setup PostgreSQL data
       # ─────────────────────────────────────────────────────────
       - name: Setup PostgreSQL data
         env:
@@ -83,7 +83,7 @@ jobs:
                -c "\COPY emails FROM 'data/emails.csv' CSV HEADER;"
 
       # ─────────────────────────────────────────────────────────
-      # 6. DVC pipeline
+      # 6. Run DVC pipeline
       # ─────────────────────────────────────────────────────────
       - name: Run DVC pipeline
         env:
@@ -99,7 +99,7 @@ jobs:
         run: dvc repro
 
       # ─────────────────────────────────────────────────────────
-      # 7. Model tests
+      # 7. Run model tests
       # ─────────────────────────────────────────────────────────
       - name: Run model tests
         if: success()
@@ -109,8 +109,7 @@ jobs:
           python -m pytest tests/test_model.py -v
 
       # ─────────────────────────────────────────────────────────
-      # 8. Promote model to production
-      # Only on master branch
+      # 8. Promote model to production (master branch only)
       # ─────────────────────────────────────────────────────────
       - name: Promote model to production
         if: success() && github.ref == 'refs/heads/master'
@@ -124,7 +123,6 @@ jobs:
 
       # ─────────────────────────────────────────────────────────
       # 9. Flask health check
-      # FLASK_DEBUG=0 → debug reloader off
       # ─────────────────────────────────────────────────────────
       - name: Spam check Flask app
         if: success()
@@ -174,22 +172,28 @@ jobs:
           kill $APP_PID 2>/dev/null
 
       # ─────────────────────────────────────────────────────────
-      # 10. Login to AWS ECR
-      # Only on master branch
+      # 10. Configure AWS credentials (FIXED - CRITICAL)
+      # ─────────────────────────────────────────────────────────
+      - name: Configure AWS credentials
+        if: success() && github.ref == 'refs/heads/master'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # ─────────────────────────────────────────────────────────
+      # 11. Login to AWS ECR
       # ─────────────────────────────────────────────────────────
       - name: Login to AWS ECR
         if: success() && github.ref == 'refs/heads/master'
-        env:
-          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
-          AWS_DEFAULT_REGION:    ${{ secrets.AWS_REGION }}
         run: |
           aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | \
             docker login --username AWS --password-stdin \
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
 
       # ─────────────────────────────────────────────────────────
-      # 11. Build Docker image
+      # 12. Build Docker image
       # ─────────────────────────────────────────────────────────
       - name: Build Docker image
         if: success() && github.ref == 'refs/heads/master'
@@ -197,20 +201,13 @@ jobs:
           docker build -t ${{ secrets.ECR_REPOSITORY }}:latest .
 
       # ─────────────────────────────────────────────────────────
-      # 12. Tag Docker image
+      # 13. Tag Docker image
       # ─────────────────────────────────────────────────────────
       - name: Tag Docker image
         if: success() && github.ref == 'refs/heads/master'
         run: |
           docker tag ${{ secrets.ECR_REPOSITORY }}:latest \
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:latest
-
-      # ─────────────────────────────────────────────────────────
-      # 13. Check Docker Authentication
-      # ─────────────────────────────────────────────────────────
-      - name: Check Docker Authentication
-        if: success() && github.ref == 'refs/heads/master'
-        run: docker info
 
       # ─────────────────────────────────────────────────────────
       # 14. Push Docker image to ECR
@@ -235,25 +232,22 @@ jobs:
       # ─────────────────────────────────────────────────────────
       - name: Update kubeconfig
         if: success() && github.ref == 'refs/heads/master'
-        env:
-          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
-          AWS_DEFAULT_REGION:    ${{ secrets.AWS_REGION }}
         run: |
           aws eks update-kubeconfig \
             --region ${{ secrets.AWS_REGION }} \
             --name flask-final
 
       # ─────────────────────────────────────────────────────────
-      # 17. Verify EKS cluster is ACTIVE before deploying
+      # 17. Verify EKS cluster connection
       # ─────────────────────────────────────────────────────────
-      - name: Verify EKS cluster status
+      - name: Verify EKS cluster connection
         if: success() && github.ref == 'refs/heads/master'
-        env:
-          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
-          AWS_DEFAULT_REGION:    ${{ secrets.AWS_REGION }}
         run: |
+          # Test kubectl connection
+          kubectl cluster-info
+          kubectl get nodes
+          
+          # Verify cluster status
           STATUS=$(aws eks --region ${{ secrets.AWS_REGION }} describe-cluster \
             --name flask-final \
             --query "cluster.status" \
@@ -263,7 +257,7 @@ jobs:
             echo "❌ Cluster is not ACTIVE (got: $STATUS)"
             exit 1
           fi
-          echo "✅ Cluster is ACTIVE"
+          echo "✅ Cluster is ACTIVE and reachable"
 
       # ─────────────────────────────────────────────────────────
       # 18. Create Kubernetes secret
@@ -284,3 +278,19 @@ jobs:
           kubectl apply -f infra/kubernetes/deployment.yaml
           kubectl rollout status deployment/deep-shield-mail \
             --timeout=120s
+
+      # ─────────────────────────────────────────────────────────
+      # 20. Verify deployment
+      # ─────────────────────────────────────────────────────────
+      - name: Verify deployment
+        if: success() && github.ref == 'refs/heads/master'
+        run: |
+          echo "✅ Deployment completed successfully!"
+          echo ""
+          echo "📦 Pods:"
+          kubectl get pods -l app=deep-shield-mail
+          echo ""
+          echo "🌐 Services:"
+          kubectl get svc -l app=deep-shield-mail
+          echo ""
+          echo "🎉 DeepShield Mail is now deployed to EKS!"
