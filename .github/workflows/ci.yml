@@ -110,7 +110,7 @@ jobs:
 
       # ─────────────────────────────────────────────────────────
       # 8. Promote model to production
-      # FIX: सिर्फ master branch पर promote होगा
+      # Only on master branch
       # ─────────────────────────────────────────────────────────
       - name: Promote model to production
         if: success() && github.ref == 'refs/heads/master'
@@ -124,8 +124,7 @@ jobs:
 
       # ─────────────────────────────────────────────────────────
       # 9. Flask health check
-      # FIX: /health route ab app.py mein exist karta hai.
-      #      FLASK_DEBUG=0 → debug reloader band, watchdog nahi chalega.
+      # FLASK_DEBUG=0 → debug reloader off
       # ─────────────────────────────────────────────────────────
       - name: Spam check Flask app
         if: success()
@@ -176,7 +175,7 @@ jobs:
 
       # ─────────────────────────────────────────────────────────
       # 10. Login to AWS ECR
-      # Only on master branch — same as promote step
+      # Only on master branch
       # ─────────────────────────────────────────────────────────
       - name: Login to AWS ECR
         if: success() && github.ref == 'refs/heads/master'
@@ -221,3 +220,67 @@ jobs:
         run: |
           docker push \
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:latest
+
+      # ─────────────────────────────────────────────────────────
+      # 15. Set up kubectl
+      # ─────────────────────────────────────────────────────────
+      - name: Set up kubectl
+        if: success() && github.ref == 'refs/heads/master'
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      # ─────────────────────────────────────────────────────────
+      # 16. Update kubeconfig for EKS cluster
+      # ─────────────────────────────────────────────────────────
+      - name: Update kubeconfig
+        if: success() && github.ref == 'refs/heads/master'
+        env:
+          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+          AWS_DEFAULT_REGION:    ${{ secrets.AWS_REGION }}
+        run: |
+          aws eks update-kubeconfig \
+            --region ${{ secrets.AWS_REGION }} \
+            --name flask-final
+
+      # ─────────────────────────────────────────────────────────
+      # 17. Verify EKS cluster is ACTIVE before deploying
+      # ─────────────────────────────────────────────────────────
+      - name: Verify EKS cluster status
+        if: success() && github.ref == 'refs/heads/master'
+        env:
+          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+          AWS_DEFAULT_REGION:    ${{ secrets.AWS_REGION }}
+        run: |
+          STATUS=$(aws eks --region ${{ secrets.AWS_REGION }} describe-cluster \
+            --name flask-final \
+            --query "cluster.status" \
+            --output text)
+          echo "Cluster status: $STATUS"
+          if [ "$STATUS" != "ACTIVE" ]; then
+            echo "❌ Cluster is not ACTIVE (got: $STATUS)"
+            exit 1
+          fi
+          echo "✅ Cluster is ACTIVE"
+
+      # ─────────────────────────────────────────────────────────
+      # 18. Create Kubernetes secret
+      # ─────────────────────────────────────────────────────────
+      - name: Create Kubernetes secret
+        if: success() && github.ref == 'refs/heads/master'
+        run: |
+          kubectl create secret generic deepshield-secret \
+            --from-literal=DEEPSHIELD_TEST=${{ secrets.DEEPSHIELD_TEST }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      # ─────────────────────────────────────────────────────────
+      # 19. Deploy to EKS
+      # ─────────────────────────────────────────────────────────
+      - name: Deploy to EKS
+        if: success() && github.ref == 'refs/heads/master'
+        run: |
+          kubectl apply -f infra/kubernetes/deployment.yaml
+          kubectl rollout status deployment/deep-shield-mail \
+            --timeout=120s

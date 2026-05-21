@@ -10,35 +10,26 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
+COPY setup.py .
+COPY pyproject.toml .
 
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
-
-RUN pip install \
-    flask \
-    gunicorn \
-    scikit-learn \
-    numpy \
-    pandas \
-    dill \
-    from-root \
-    google-auth-oauthlib \
-    google-api-python-client
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install -e . --no-deps
 
 COPY serving ./serving
 COPY src ./src
-COPY artifact ./artifact
 COPY templates ./templates
 COPY static ./static
 COPY constants ./constants
 COPY config ./config
-
-
-# Copy root files
 COPY params.yaml .
-COPY setup.py .
-COPY pyproject.toml .
 COPY .project-root ./
+
+# Copy only the latest model artifacts — not all timestamped runs
+COPY artifact/data_transformation/transformed_object ./artifact/data_transformation/transformed_object
+COPY artifact/model_trainer/trained_model ./artifact/model_trainer/trained_model
+
 ENV PYTHONPATH=/app
 
 EXPOSE 8000
