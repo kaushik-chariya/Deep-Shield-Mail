@@ -265,7 +265,7 @@ jobs:
             docker stop deep-shield-mail || true
             docker rm   deep-shield-mail || true
 
-            # ── Run new container (24/7 auto-restart) ─────
+            # ── Run new container (24/7 auto-restart)  ─────
             docker run -d \
               --name deep-shield-mail \
               --restart=always \
