@@ -284,7 +284,6 @@ jobs:
               -e GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
               -e GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}" \
               -e FLASK_SECRET_KEY="${{ secrets.FLASK_SECRET_KEY }}" \
-              -e OAUTHLIB_INSECURE_TRANSPORT="1" \
               -e REDIRECT_URI="${{ secrets.REDIRECT_URI }}" \
               ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:latest
 
