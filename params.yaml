@@ -53,4 +53,4 @@ model_evaluation:
   model_name: "Deep-Shield-Spam-Detector"
 
 model_pusher:
-  alias: "staging"
+  alias: "champion"

@@ -187,7 +187,7 @@ class ModelEvaluation:
                 # ── Step 8: Compare with production ─────────────
                 best_accuracy = self._get_production_accuracy(MODEL_EVALUATION_MODEL_NAME)
                 new_accuracy  = metrics["accuracy"]
-                should_push   = new_accuracy >= best_accuracy
+                should_push   = new_accuracy > best_accuracy
 
                 if should_push:
                     logger.info("🚀 New model BETTER — PUSH hoga")
