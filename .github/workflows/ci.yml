@@ -306,6 +306,6 @@ jobs:
               sleep 2
             done
 
-            # ── Show running  container ────────────────────
+            # ── Show running container ────────────────────
             echo "🚀 Deployment successful! Container status:"
             docker ps | grep deep-shield-mail
