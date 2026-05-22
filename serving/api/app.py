@@ -2,7 +2,7 @@
 Deep Shield Mail — Flask App
 Supports: Gmail OAuth2 · Manual Paste
 """
-
+from google_auth_oauthlib.flow import Flow
 import os, sys, traceback
 from functools import wraps
 from pathlib import Path
@@ -11,6 +11,9 @@ from flask import (
     Flask, render_template, redirect, url_for,
     session, request, jsonify, flash
 )
+
+# ── Proxy Fix (for AWS / load balancer) ─────────────────────────
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # ── Path setup ──────────────────────────────────────────────────
 ROOT = Path(__file__).resolve().parents[2]
@@ -37,7 +40,14 @@ app = Flask(
     template_folder=str(ROOT / "templates"),
     static_folder=str(ROOT / "static"),
 )
+
+# ✅ Fix: Trust load balancer headers so url_for() generates correct external URL
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-change-in-prod")
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = False
+app.config["SESSION_COOKIE_HTTPONLY"] = True
 
 # Allow HTTP for local dev (remove in production)
 os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
@@ -63,6 +73,18 @@ GOOGLE_SCOPES        = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "openid", "email", "profile",
 ]
+
+
+# ═══════════════════════════════════════════════════════════════
+# Helper — resolve redirect URI
+# ✅ Uses REDIRECT_URI env var on AWS, falls back to url_for() locally
+# ═══════════════════════════════════════════════════════════════
+
+def get_redirect_uri() -> str:
+    return os.getenv(
+        "REDIRECT_URI",
+        url_for("auth_gmail_callback", _external=True)
+    )
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -105,11 +127,13 @@ def index():
 @app.route("/auth/gmail")
 def auth_gmail():
     if not GOOGLE_AVAILABLE:
-        flash("google-auth-oauthlib not installed. Run: pip install google-auth-oauthlib google-api-python-client", "danger")
+        flash("google-auth-oauthlib not installed.", "danger")
         return redirect(url_for("index"))
     if not GOOGLE_CLIENT_ID:
         flash("GOOGLE_CLIENT_ID not set in environment.", "danger")
         return redirect(url_for("index"))
+
+    redirect_uri = get_redirect_uri()  # ✅ Fixed
 
     client_config = {
         "web": {
@@ -117,11 +141,11 @@ def auth_gmail():
             "client_secret": GOOGLE_CLIENT_SECRET,
             "auth_uri"     : "https://accounts.google.com/o/oauth2/auth",
             "token_uri"    : "https://oauth2.googleapis.com/token",
-            "redirect_uris": [url_for("auth_gmail_callback", _external=True)],
+            "redirect_uris": [redirect_uri],
         }
     }
     flow = Flow.from_client_config(client_config, scopes=GOOGLE_SCOPES)
-    flow.redirect_uri = url_for("auth_gmail_callback", _external=True)
+    flow.redirect_uri = redirect_uri  # ✅ Fixed
 
     auth_url, state = flow.authorization_url(
         access_type="offline",
@@ -130,23 +154,30 @@ def auth_gmail():
     )
     session["google_state"]         = state
     session["google_code_verifier"] = flow.code_verifier
+    session.modified = True
     return redirect(auth_url)
 
 
 @app.route("/auth/gmail/callback")
 def auth_gmail_callback():
     state = session.get("google_state")
+    if not state:
+        flash("Session expired. Please try again.", "danger")
+        return redirect(url_for("index"))
+
+    redirect_uri = get_redirect_uri()  # ✅ Fixed
+
     client_config = {
         "web": {
             "client_id"    : GOOGLE_CLIENT_ID,
             "client_secret": GOOGLE_CLIENT_SECRET,
             "auth_uri"     : "https://accounts.google.com/o/oauth2/auth",
             "token_uri"    : "https://oauth2.googleapis.com/token",
-            "redirect_uris": [url_for("auth_gmail_callback", _external=True)],
+            "redirect_uris": [redirect_uri],
         }
     }
     flow = Flow.from_client_config(client_config, scopes=GOOGLE_SCOPES, state=state)
-    flow.redirect_uri = url_for("auth_gmail_callback", _external=True)
+    flow.redirect_uri = redirect_uri  # ✅ Fixed
 
     flow.fetch_token(
         authorization_response=request.url,
@@ -182,7 +213,6 @@ def manual_email():
 
 @app.route("/api/predict/manual", methods=["POST"])
 def api_predict_manual():
-    """Predict spam on a raw email pasted by the user — no login required."""
     data     = request.get_json(force=True)
     raw_text = data.get("raw", "").strip()
     if not raw_text:
@@ -240,7 +270,6 @@ def api_predict():
 @app.route("/api/scan", methods=["POST"])
 @login_required
 def api_scan():
-    """Predict all emails and return aggregated results."""
     data   = request.get_json(force=True)
     emails = data.get("emails", [])
     if not emails:
@@ -333,5 +362,5 @@ if __name__ == "__main__":
     app.run(
         host=APP_HOST,
         port=APP_PORT,
-        debug=os.getenv("FLASK_DEBUG", "0") == "1",  # CI में FLASK_DEBUG set नहीं होगा → False
+        debug=os.getenv("FLASK_DEBUG", "0") == "1",
     )

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: deepshield-config
+data:
+  FLASK_DEBUG: "0"
+  POSTGRES_HOST: "localhost"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "spam_db"
+  OAUTHLIB_INSECURE_TRANSPORT: "1"
+  REDIRECT_URI: "http://af7c6a56de0914cac817ca83e478c8b6-1816210777.us-east-1.elb.amazonaws.com:8000/auth/gmail/callback"  # 👈 Add this

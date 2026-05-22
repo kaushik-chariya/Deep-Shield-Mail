@@ -3,855 +3,581 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Analyse Email — Deep Shield Mail</title>
+<title>Deep Shield Mail · Scan Email</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Grotesk:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg:       #07070a;
-  --surface:  #0f0f16;
-  --surface2: #13131d;
-  --border:   rgba(200,168,75,0.15);
-  --border2:  rgba(255,255,255,0.06);
-  --gold:     #c8a84b;
-  --gold2:    #e8c96a;
-  --gold-bg:  rgba(200,168,75,0.08);
-  --gold-bd:  rgba(200,168,75,0.22);
-  --red:      #e07060;
-  --red-bg:   rgba(224,112,96,0.08);
-  --red-bd:   rgba(224,112,96,0.22);
-  --green:    #4ecb85;
-  --green-bg: rgba(78,203,133,0.08);
-  --green-bd: rgba(78,203,133,0.22);
-  --ink:      #ede9e0;
-  --ink2:     #9a9080;
-  --ink3:     #5a5448;
-  --glass:    rgba(10,10,16,0.85);
-  --font:     'Outfit', sans-serif;
-  --display:  'Cormorant Garamond', serif;
-  --mono:     'JetBrains Mono', monospace;
+  --gold:       #c9a84c;
+  --gold-light: #f0d080;
+  --gold-dim:   rgba(201,168,76,0.13);
+  --gold-glow:  rgba(201,168,76,0.3);
+  --bg:         #04040a;
+  --ink:        #f2efe8;
+  --ink2:       #9a9488;
+  --ink3:       #4a4840;
+  --glass:      rgba(8,8,16,0.78);
+  --border:     rgba(201,168,76,0.2);
+  --red:        #e05050;
+  --green:      #4ecb71;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; min-height: 100%; background: var(--bg); font-family: 'Space Grotesk', sans-serif; color: var(--ink); }
 
-html, body {
-  background: var(--bg);
-  color: var(--ink);
-  font-family: var(--font);
-  height: 100%;
-}
+canvas#bg { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; }
+.noise { position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px 200px; }
 
-body {
-  display: grid;
-  grid-template-columns: 340px 1fr;
+.page {
+  position: relative; z-index: 10;
   min-height: 100vh;
-  position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 2.5rem 1.5rem 4rem;
 }
 
-/* ════════════════════════════════
-   GLOBAL BACKGROUND EFFECTS
-════════════════════════════════ */
-body::before {
-  content: '';
-  position: fixed; inset: 0;
-  background-image:
-    linear-gradient(rgba(200,168,75,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(200,168,75,0.03) 1px, transparent 1px);
-  background-size: 60px 60px;
-  pointer-events: none; z-index: 0;
-}
-
-/* Tunnel rings — continuous zoom */
-.tunnel {
-  position: fixed; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  pointer-events: none; z-index: 0;
-  overflow: hidden;
-}
-
-.ring {
-  position: absolute;
-  border-radius: 50%;
-  border: 1px solid rgba(200,168,75,0.12);
-  width: 80px; height: 80px;
-  animation: zoomRing 7s cubic-bezier(0.4,0,0.6,1) infinite;
-}
-
-.ring:nth-child(1) { animation-delay: 0s; }
-.ring:nth-child(2) { animation-delay: -0.875s; }
-.ring:nth-child(3) { animation-delay: -1.75s; }
-.ring:nth-child(4) { animation-delay: -2.625s; }
-.ring:nth-child(5) { animation-delay: -3.5s; }
-.ring:nth-child(6) { animation-delay: -4.375s; }
-.ring:nth-child(7) { animation-delay: -5.25s; }
-.ring:nth-child(8) { animation-delay: -6.125s; }
-
-@keyframes zoomRing {
-  0%   { transform: scale(0.05); opacity: 0; border-color: rgba(200,168,75,0.45); }
-  10%  { opacity: 1; }
-  75%  { border-color: rgba(200,168,75,0.06); }
-  100% { transform: scale(24); opacity: 0; }
-}
-
-/* Radial vignette */
-.vignette {
-  position: fixed; inset: 0;
-  background: radial-gradient(ellipse 55% 55% at 50% 50%, transparent 0%, rgba(7,7,10,0.6) 50%, rgba(7,7,10,0.97) 100%);
-  pointer-events: none; z-index: 0;
-}
-
-/* Glow origin — placed near left panel center */
-.glow-origin {
-  position: fixed;
-  left: 170px; top: 50%;
-  transform: translateY(-50%);
-  width: 480px; height: 480px;
-  border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(200,168,75,0.05) 0%, transparent 70%);
-  pointer-events: none; z-index: 0;
-  animation: glowPulse 4s ease-in-out infinite;
-}
-@keyframes glowPulse {
-  0%,100% { opacity: 0.7; transform: translateY(-50%) scale(1); }
-  50%      { opacity: 1;   transform: translateY(-50%) scale(1.12); }
-}
-
-/* ════════════════════════════════
-   LEFT SIDEBAR
-════════════════════════════════ */
-.left {
-  position: relative; z-index: 1;
-  background: rgba(9,9,13,0.92);
-  border-right: 1px solid var(--border);
-  display: flex; flex-direction: column;
-  padding: 2.4rem 2rem;
-  min-height: 100vh;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  overflow: hidden;
-}
-
-/* dot texture */
-.left::before {
-  content: '';
-  position: absolute; inset: 0;
-  background-image: radial-gradient(circle, rgba(200,168,75,0.07) 1px, transparent 1px);
-  background-size: 22px 22px;
-  pointer-events: none;
-}
-
-/* bottom arc */
-.left::after {
-  content: '';
-  position: absolute;
-  bottom: -130px; right: -130px;
-  width: 360px; height: 360px;
-  border-radius: 50%;
-  border: 1px solid rgba(200,168,75,0.08);
-  pointer-events: none;
-}
-
-.left-inner {
-  position: relative; z-index: 1;
-  display: flex; flex-direction: column;
-  height: 100%;
-}
-
-/* ── Brand ── */
-.brand {
-  display: flex; align-items: center; gap: 10px;
+/* ── Top nav ── */
+.topbar {
+  width: 100%; max-width: 760px;
+  display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 2.8rem;
+  opacity: 0; animation: fadeDown 0.7s cubic-bezier(0.22,1,0.36,1) 0.1s forwards;
 }
 
-.brand-icon {
-  width: 36px; height: 36px;
-  background: linear-gradient(135deg, var(--gold), var(--gold2));
-  border-radius: 9px;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
-
-.brand-icon svg { width: 18px; height: 18px; }
-
-.brand-name {
-  font-family: var(--display);
-  font-size: 1rem; font-weight: 600;
-  color: var(--ink);
-  letter-spacing: 0.04em;
-}
-
-/* ── Heading ── */
-.left-heading {
-  font-family: var(--display);
-  font-size: 2rem; font-weight: 300;
-  color: var(--ink);
-  line-height: 1.2;
-  letter-spacing: 0.01em;
-  margin-bottom: 1rem;
-}
-
-.left-heading em {
-  font-style: italic;
-  background: linear-gradient(135deg, var(--gold) 0%, var(--gold2) 100%);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
-  font-weight: 400;
-}
-
-.left-sub {
-  font-size: 0.82rem; font-weight: 300;
-  color: var(--ink3);
-  line-height: 1.75;
-  margin-bottom: 2.4rem;
-}
-
-/* ── Demo label ── */
-.demo-label {
-  font-family: var(--mono);
-  font-size: 0.58rem;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: var(--ink3);
-  margin-bottom: 10px;
-  display: flex; align-items: center; gap: 8px;
-}
-
-.demo-label::after {
-  content: ''; flex: 1; height: 1px;
-  background: linear-gradient(90deg, var(--border2), transparent);
-}
-
-/* ── Demo chips ── */
-.chips {
-  display: flex; flex-direction: column; gap: 5px;
-  margin-bottom: 2.4rem;
-}
-
-.chip {
-  display: flex; align-items: center; gap: 9px;
-  padding: 8px 11px;
-  border-radius: 8px;
-  border: 1px solid var(--border2);
-  background: rgba(255,255,255,0.02);
-  cursor: pointer;
-  transition: all 0.18s;
-  font-family: var(--font);
-  position: relative; overflow: hidden;
-}
-
-.chip::after {
-  content: '';
-  position: absolute; inset: 0; left: -100%;
-  background: linear-gradient(90deg, transparent, rgba(200,168,75,0.04), transparent);
-  transition: left 0.4s;
-}
-
-.chip:hover {
-  background: rgba(200,168,75,0.05);
-  border-color: var(--gold-bd);
-  transform: translateX(4px);
-}
-.chip:hover::after { left: 100%; }
-
-.chip-dot {
-  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
-}
-.chip-dot.spam { background: var(--red); box-shadow: 0 0 5px rgba(224,112,96,0.4); }
-.chip-dot.ham  { background: var(--green); box-shadow: 0 0 5px rgba(78,203,133,0.4); }
-.chip-dot.news { background: var(--gold);  box-shadow: 0 0 5px rgba(200,168,75,0.4); }
-
-.chip-text {
-  font-size: 0.78rem; font-weight: 400;
-  color: var(--ink2); flex: 1;
-}
-
-.chip-tag {
-  font-family: var(--mono);
-  font-size: 0.54rem;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  padding: 2px 7px; border-radius: 4px;
-}
-.chip-tag.spam { background: var(--red-bg);   color: var(--red);   border: 1px solid var(--red-bd); }
-.chip-tag.ham  { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-bd); }
-.chip-tag.news { background: var(--gold-bg);  color: var(--gold);  border: 1px solid var(--gold-bd); }
-
-/* ── Back link ── */
-.back-link {
-  margin-top: auto;
-  display: inline-flex; align-items: center; gap: 7px;
-  font-family: var(--mono);
-  font-size: 0.63rem; font-weight: 300;
-  color: var(--ink3);
-  text-decoration: none;
-  letter-spacing: 0.06em;
-  transition: color 0.2s, gap 0.2s;
-}
-.back-link:hover { color: var(--gold); gap: 10px; }
-
-/* ════════════════════════════════
-   RIGHT — ANALYSIS PANEL
-════════════════════════════════ */
-.right {
-  position: relative; z-index: 1;
-  display: flex; flex-direction: column;
-  padding: 2.4rem 2.8rem 2rem;
-  overflow-y: auto;
-}
-
-/* ── Top bar ── */
-.right-top {
-  display: flex; align-items: center;
-  justify-content: space-between;
-  margin-bottom: 2rem;
-  padding-bottom: 1.2rem;
-  border-bottom: 1px solid var(--border2);
-}
-
-.right-top h2 {
-  font-family: var(--display);
-  font-size: 1.6rem; font-weight: 300;
-  color: var(--ink);
-  letter-spacing: 0.02em;
-}
-
-.right-top h2 span {
-  font-style: italic;
-  background: linear-gradient(135deg, var(--gold), var(--gold2));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.char-counter {
-  font-family: var(--mono);
-  font-size: 0.62rem; font-weight: 300;
-  color: var(--ink3);
-  background: var(--surface2);
-  padding: 4px 12px;
-  border-radius: 20px;
-  border: 1px solid var(--border2);
-  letter-spacing: 0.04em;
-  transition: color 0.2s, border-color 0.2s;
-}
-.char-counter.active {
-  color: var(--gold);
-  border-color: var(--gold-bd);
-}
-
-/* ── Textarea card ── */
-.ta-card {
-  background: var(--surface);
-  border: 1px solid var(--border2);
-  border-radius: 14px;
-  padding: 1.2rem 1.3rem;
-  margin-bottom: 1.1rem;
-  flex-shrink: 0;
-  position: relative;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.ta-card.focused {
-  border-color: var(--gold-bd);
-  box-shadow: 0 0 0 1px var(--gold-bd), 0 8px 32px rgba(200,168,75,0.05);
-}
-
-/* top highlight */
-.ta-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 15%; right: 15%; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(200,168,75,0.2), transparent);
-  border-radius: 1px;
-}
-
-.ta-label {
-  font-family: var(--mono);
-  font-size: 0.58rem;
-  text-transform: uppercase; letter-spacing: 0.14em;
-  color: var(--ink3);
-  margin-bottom: 10px;
-  display: flex; align-items: center; gap: 8px;
-}
-.ta-label::after {
-  content: ''; flex: 1; height: 1px;
-  background: var(--border2);
-}
-
-textarea {
-  width: 100%; min-height: 260px;
-  background: transparent;
-  border: none; outline: none;
-  padding: 0.2rem 0;
-  font-family: var(--mono);
-  font-size: 0.74rem; font-weight: 300;
-  color: var(--ink);
-  line-height: 1.8;
-  resize: vertical;
-  caret-color: var(--gold);
-}
-
-textarea::placeholder {
-  color: var(--ink3);
-  font-style: italic;
-}
-
-/* ── Actions ── */
-.actions {
-  display: flex; gap: 10px; align-items: center;
-  margin-bottom: 1.6rem;
-}
-
-.btn-analyse {
-  display: inline-flex; align-items: center; gap: 9px;
-  padding: 11px 28px;
-  background: linear-gradient(135deg, rgba(200,168,75,0.18) 0%, rgba(200,168,75,0.1) 100%);
-  border: 1px solid rgba(200,168,75,0.4);
-  border-radius: 10px;
-  color: var(--ink);
-  font-family: var(--font);
-  font-size: 0.88rem; font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  letter-spacing: 0.02em;
-  box-shadow: 0 0 0 0 rgba(200,168,75,0);
-  position: relative; overflow: hidden;
-}
-.btn-analyse::after {
-  content: '';
-  position: absolute; inset: 0; left: -100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
-  transition: left 0.35s;
-}
-.btn-analyse:hover {
-  background: linear-gradient(135deg, rgba(200,168,75,0.28) 0%, rgba(200,168,75,0.16) 100%);
-  border-color: rgba(200,168,75,0.65);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 24px rgba(200,168,75,0.15);
-}
-.btn-analyse:hover::after { left: 100%; }
-.btn-analyse:active { transform: translateY(0) scale(0.99); }
-.btn-analyse:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
-
-.btn-clear {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 11px 18px;
-  background: transparent;
-  border: 1px solid var(--border2);
-  border-radius: 10px;
-  color: var(--ink3);
-  font-family: var(--font);
-  font-size: 0.84rem;
-  cursor: pointer;
-  transition: all 0.18s;
-}
-.btn-clear:hover {
-  background: rgba(255,255,255,0.04);
-  border-color: rgba(255,255,255,0.12);
-  color: var(--ink);
-}
-
-/* spinner */
-.spin {
-  width: 14px; height: 14px;
-  border: 1.5px solid rgba(200,168,75,0.25);
-  border-top-color: var(--gold);
-  border-radius: 50%;
-  animation: rot 0.7s linear infinite;
-  display: none;
-}
-@keyframes rot { to { transform: rotate(360deg); } }
-
-/* ── Result card ── */
-.result-card {
-  border-radius: 14px;
-  padding: 1.5rem 1.6rem;
-  display: none;
-  animation: fadeUp 0.32s cubic-bezier(.4,0,.2,1);
-  border: 1px solid transparent;
-  backdrop-filter: blur(8px);
-  position: relative; overflow: hidden;
-}
-
-.result-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 15%; right: 15%; height: 1px;
-  background: linear-gradient(90deg, transparent, currentColor, transparent);
-  opacity: 0.3;
-}
-
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(10px); }
+@keyframes fadeDown {
+  from { opacity: 0; transform: translateY(-16px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.result-card.spam {
-  display: block;
-  background: var(--red-bg);
-  border-color: var(--red-bd);
-  box-shadow: 0 8px 40px rgba(224,112,96,0.06);
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-.result-card.spam::before { color: var(--red); }
 
-.result-card.ham {
-  display: block;
-  background: var(--green-bg);
-  border-color: var(--green-bd);
-  box-shadow: 0 8px 40px rgba(78,203,133,0.06);
+.nav-logo {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none;
 }
-.result-card.ham::before { color: var(--green); }
 
-/* result top */
-.result-top {
+.nav-shield {
+  width: 30px; height: 34px;
+  filter: drop-shadow(0 0 8px rgba(201,168,76,0.35));
+}
+
+.nav-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 1rem; font-weight: 400;
+  color: var(--ink); letter-spacing: 0.04em;
+}
+.nav-name b {
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.nav-back {
+  display: flex; align-items: center; gap: 7px;
+  text-decoration: none;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.62rem; letter-spacing: 0.12em;
+  color: var(--ink3); text-transform: uppercase;
+  transition: color 0.2s;
+}
+.nav-back:hover { color: var(--gold); }
+.nav-back::before { content: '←'; font-size: 0.9rem; }
+
+/* ── Page heading ── */
+.page-head {
+  text-align: center;
+  margin-bottom: 2.2rem;
+  opacity: 0; animation: fadeUp 0.8s cubic-bezier(0.22,1,0.36,1) 0.2s forwards;
+}
+
+.page-eyebrow {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.58rem; letter-spacing: 0.28em;
+  color: var(--gold); text-transform: uppercase;
+  margin-bottom: 0.7rem;
+}
+
+.page-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  font-weight: 700; line-height: 1.1;
+  color: var(--ink);
+}
+
+.page-title em {
+  font-style: italic;
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Main card ── */
+.main-card {
+  width: 100%; max-width: 760px;
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 2.4rem 2.4rem 2rem;
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  box-shadow: 0 40px 100px rgba(0,0,0,0.65), 0 0 80px rgba(201,168,76,0.04);
+  position: relative; overflow: hidden;
+  opacity: 0; animation: fadeUp 0.9s cubic-bezier(0.22,1,0.36,1) 0.35s forwards;
+}
+
+.main-card::before {
+  content: '';
+  position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201,168,76,0.55), transparent);
+}
+.main-card::after {
+  content: '';
+  position: absolute; top: 16px; right: 16px;
+  width: 28px; height: 28px;
+  border-top: 1px solid var(--border); border-right: 1px solid var(--border);
+  border-radius: 0 8px 0 0; opacity: 0.5;
+}
+
+.corner-bl {
+  position: absolute; bottom: 16px; left: 16px;
+  width: 28px; height: 28px;
+  border-bottom: 1px solid var(--border); border-left: 1px solid var(--border);
+  border-radius: 0 0 0 8px; opacity: 0.5;
+}
+
+/* ── Textarea ── */
+.field-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem; letter-spacing: 0.2em;
+  color: var(--gold); text-transform: uppercase;
+  margin-bottom: 0.8rem;
+  display: flex; align-items: center; gap: 8px;
+}
+.field-label::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, var(--border), transparent);
+}
+
+.email-textarea {
+  width: 100%; height: 240px;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px;
+  padding: 1.1rem 1.2rem;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem; line-height: 1.7;
+  color: var(--ink2);
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+.email-textarea::placeholder { color: var(--ink3); }
+.email-textarea:focus {
+  border-color: rgba(201,168,76,0.3);
+  background: rgba(0,0,0,0.5);
+  color: var(--ink);
+}
+
+/* ── Scan button ── */
+.scan-btn {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  width: 100%; padding: 1.1rem;
+  margin-top: 1.1rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(201,168,76,0.18), rgba(201,168,76,0.08));
+  border: 1px solid rgba(201,168,76,0.42);
+  color: var(--ink);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.92rem; font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+  box-shadow: 0 4px 24px rgba(201,168,76,0.1), inset 0 1px 0 rgba(201,168,76,0.2);
+  position: relative; overflow: hidden;
+}
+.scan-btn::before {
+  content: ''; position: absolute;
+  top: 0; left: -120%; width: 50%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+  transition: left 0.5s;
+}
+.scan-btn:hover::before { left: 160%; }
+.scan-btn:hover {
+  background: linear-gradient(135deg, rgba(201,168,76,0.26), rgba(201,168,76,0.14));
+  border-color: rgba(201,168,76,0.65);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 36px rgba(201,168,76,0.2), inset 0 1px 0 rgba(201,168,76,0.25);
+}
+.scan-btn:active { transform: scale(0.99); }
+.scan-btn:disabled { opacity: 0.5; pointer-events: none; }
+
+.scan-btn .spinner {
+  width: 16px; height: 16px;
+  border: 2px solid rgba(201,168,76,0.3);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: none;
+}
+.scan-btn.loading .spinner { display: block; }
+.scan-btn.loading .btn-text-label { display: none; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Result panel ── */
+.result-panel {
+  margin-top: 1.6rem;
+  display: none;
+}
+.result-panel.visible { display: block; }
+
+.result-divider {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 1.4rem;
+}
+.result-divider span {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.58rem; letter-spacing: 0.18em;
+  color: var(--ink3); text-transform: uppercase; flex-shrink: 0;
+}
+.result-divider::before, .result-divider::after {
+  content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.06);
+}
+
+.result-box {
+  border-radius: 16px;
+  padding: 1.6rem;
+  border: 1px solid;
+  position: relative; overflow: hidden;
+  animation: resultIn 0.5s cubic-bezier(0.22,1,0.36,1);
+}
+
+@keyframes resultIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.result-box.spam {
+  background: rgba(224,80,80,0.07);
+  border-color: rgba(224,80,80,0.3);
+}
+.result-box.ham {
+  background: rgba(78,203,113,0.07);
+  border-color: rgba(78,203,113,0.3);
+}
+
+.result-box::before {
+  content: '';
+  position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+}
+.result-box.spam::before { background: linear-gradient(90deg, transparent, rgba(224,80,80,0.5), transparent); }
+.result-box.ham::before  { background: linear-gradient(90deg, transparent, rgba(78,203,113,0.5), transparent); }
+
+.result-header {
   display: flex; align-items: center; gap: 14px;
-  margin-bottom: 1.1rem;
+  margin-bottom: 1.2rem;
 }
 
-.result-icon-wrap {
-  width: 50px; height: 50px; border-radius: 50%;
+.result-verdict-icon {
+  width: 48px; height: 48px; border-radius: 12px;
   display: flex; align-items: center; justify-content: center;
   font-size: 22px; flex-shrink: 0;
 }
-.result-card.spam .result-icon-wrap {
-  background: rgba(224,112,96,0.12);
-  border: 1px solid rgba(224,112,96,0.2);
-}
-.result-card.ham .result-icon-wrap {
-  background: rgba(78,203,133,0.12);
-  border: 1px solid rgba(78,203,133,0.2);
-}
+.spam .result-verdict-icon { background: rgba(224,80,80,0.15); border: 1px solid rgba(224,80,80,0.3); }
+.ham  .result-verdict-icon { background: rgba(78,203,113,0.15); border: 1px solid rgba(78,203,113,0.3); }
 
-.result-verdict {
-  font-family: var(--display);
-  font-size: 1.3rem; font-weight: 400;
-  letter-spacing: 0.02em;
-  margin-bottom: 3px;
+.result-verdict-text {}
+.result-verdict-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.58rem; letter-spacing: 0.2em;
+  text-transform: uppercase; margin-bottom: 3px;
 }
-.result-card.spam .result-verdict { color: var(--red); }
-.result-card.ham  .result-verdict { color: var(--green); }
+.spam .result-verdict-label { color: rgba(224,80,80,0.7); }
+.ham  .result-verdict-label { color: rgba(78,203,113,0.7); }
 
-.result-conf {
-  font-family: var(--mono);
-  font-size: 0.62rem; font-weight: 300;
-  color: var(--ink3);
-  letter-spacing: 0.06em;
+.result-verdict-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem; font-weight: 700;
 }
+.spam .result-verdict-title { color: var(--red); }
+.ham  .result-verdict-title { color: var(--green); }
 
-/* prob bar */
+/* ── Probability bar ── */
 .prob-row {
-  display: flex; align-items: center; gap: 10px;
-  margin-bottom: 1.1rem;
+  margin-bottom: 1rem;
 }
+.prob-label {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px;
+}
+.prob-label span {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem; letter-spacing: 0.1em; color: var(--ink3);
+}
+.prob-label strong {
+  font-size: 0.75rem; font-weight: 700;
+}
+.spam .prob-label strong { color: var(--red); }
+.ham  .prob-label strong { color: var(--green); }
 
 .prob-track {
-  flex: 1; height: 3px;
+  height: 6px; border-radius: 3px;
   background: rgba(255,255,255,0.06);
-  border-radius: 2px; overflow: hidden;
+  overflow: hidden;
 }
-
 .prob-fill {
-  height: 100%; border-radius: 2px;
-  transition: width 1s cubic-bezier(.4,0,.2,1);
+  height: 100%; border-radius: 3px;
+  transition: width 1s cubic-bezier(0.22,1,0.36,1);
 }
-.result-card.spam .prob-fill { background: var(--red); box-shadow: 0 0 8px var(--red); }
-.result-card.ham  .prob-fill { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.spam .prob-fill { background: linear-gradient(90deg, rgba(224,80,80,0.5), var(--red)); }
+.ham  .prob-fill { background: linear-gradient(90deg, rgba(78,203,113,0.5), var(--green)); }
 
-.prob-label {
-  font-family: var(--mono);
-  font-size: 0.62rem; font-weight: 300;
-  color: var(--ink3); white-space: nowrap;
-  letter-spacing: 0.04em;
+/* ── Meta chips ── */
+.meta-chips {
+  display: flex; flex-wrap: wrap; gap: 7px;
 }
+.chip {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.56rem; letter-spacing: 0.08em;
+  padding: 4px 10px; border-radius: 6px;
+  border: 1px solid; text-transform: uppercase;
+}
+.spam .chip { background: rgba(224,80,80,0.08); border-color: rgba(224,80,80,0.2); color: rgba(224,80,80,0.8); }
+.ham  .chip { background: rgba(78,203,113,0.08); border-color: rgba(78,203,113,0.2); color: rgba(78,203,113,0.8); }
 
-.result-tip {
-  font-size: 0.8rem; font-weight: 300;
-  color: var(--ink2);
-  line-height: 1.65;
-  border-top: 1px solid rgba(255,255,255,0.05);
-  padding-top: 0.9rem;
+/* ── Error ── */
+.error-box {
+  display: none; margin-top: 1rem;
+  padding: 0.8rem 1rem;
+  border-radius: 10px;
+  background: rgba(224,80,80,0.08);
+  border: 1px solid rgba(224,80,80,0.25);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.65rem; color: var(--red);
 }
+.error-box.visible { display: block; }
+
+/* ── Bottom bar ── */
+.bottom-strip {
+  width: 100%; max-width: 760px;
+  margin-top: 1.8rem;
+  display: flex; align-items: center; justify-content: space-between;
+  opacity: 0; animation: fadeUp 0.7s cubic-bezier(0.22,1,0.36,1) 0.7s forwards;
+}
+.strip-text {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.56rem; letter-spacing: 0.12em; color: var(--ink3);
+}
+.dot-live {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 7px rgba(78,203,113,0.5);
+  animation: blink 2.5s ease-in-out infinite;
+  display: inline-block; margin-right: 6px; vertical-align: middle;
+}
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
 </style>
 </head>
 <body>
 
-<!-- Background effects -->
-<div class="tunnel">
-  <div class="ring"></div><div class="ring"></div>
-  <div class="ring"></div><div class="ring"></div>
-  <div class="ring"></div><div class="ring"></div>
-  <div class="ring"></div><div class="ring"></div>
-</div>
-<div class="glow-origin"></div>
-<div class="vignette"></div>
+<div class="noise"></div>
+<canvas id="bg"></canvas>
 
-<!-- ══ LEFT ══ -->
-<div class="left">
-  <div class="left-inner">
+<div class="page">
 
-    <div class="brand">
-      <div class="brand-icon">
-        <svg viewBox="0 0 72 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M36 2L6 14V40C6 58 20 72 36 78C52 72 66 58 66 40V14L36 2Z" fill="rgba(10,10,16,0.8)" stroke="#1c1a14" stroke-width="1"/>
-          <rect x="20" y="28" width="32" height="24" rx="2" fill="none" stroke="#07070a" stroke-width="1.5"/>
-          <path d="M20 30L36 42L52 30" stroke="#07070a" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <div class="brand-name">Deep Shield Mail</div>
-    </div>
+  <!-- Topbar -->
+  <nav class="topbar">
+    <a href="/" class="nav-logo">
+      <svg class="nav-shield" viewBox="0 0 30 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="ng" x1="0" y1="0" x2="30" y2="34" gradientUnits="userSpaceOnUse">
+            <stop offset="0%"  stop-color="#f0d080"/>
+            <stop offset="100%" stop-color="#9a7030"/>
+          </linearGradient>
+          <linearGradient id="ng2" x1="0" y1="0" x2="30" y2="34" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#f0d080" stop-opacity="0.18"/>
+            <stop offset="100%" stop-color="#c9a84c" stop-opacity="0.04"/>
+          </linearGradient>
+        </defs>
+        <path d="M15 1L2 6.5V19C2 27 8 32 15 34C22 32 28 27 28 19V6.5L15 1Z" fill="url(#ng2)" stroke="url(#ng)" stroke-width="1"/>
+        <rect x="8" y="12" width="14" height="10" rx="1.5" fill="none" stroke="url(#ng)" stroke-width="1"/>
+        <path d="M8 13.5L15 19L22 13.5" stroke="url(#ng)" stroke-width="1" stroke-linecap="round"/>
+      </svg>
+      <span class="nav-name">Deep <b>Shield</b></span>
+    </a>
+    <a href="/" class="nav-back">Back to login</a>
+  </nav>
 
-    <h1 class="left-heading">
-      Paste any<br>email.<br>
-      <em>We'll judge it.</em>
-    </h1>
-
-    <p class="left-sub">No login required. Paste a raw email — headers optional — and our ML model classifies it instantly.</p>
-
-    <div class="demo-label">Try a demo</div>
-    <div class="chips">
-      <button class="chip" onclick="loadDemo('spam1')">
-        <div class="chip-dot spam"></div>
-        <div class="chip-text">Lottery prize scam</div>
-        <span class="chip-tag spam">Spam</span>
-      </button>
-      <button class="chip" onclick="loadDemo('spam2')">
-        <div class="chip-dot spam"></div>
-        <div class="chip-text">Bank phishing alert</div>
-        <span class="chip-tag spam">Spam</span>
-      </button>
-      <button class="chip" onclick="loadDemo('spam3')">
-        <div class="chip-dot spam"></div>
-        <div class="chip-text">Weight loss offer</div>
-        <span class="chip-tag spam">Spam</span>
-      </button>
-      <button class="chip" onclick="loadDemo('ham1')">
-        <div class="chip-dot ham"></div>
-        <div class="chip-text">Team meeting invite</div>
-        <span class="chip-tag ham">Legit</span>
-      </button>
-      <button class="chip" onclick="loadDemo('ham2')">
-        <div class="chip-dot ham"></div>
-        <div class="chip-text">GitHub pull request</div>
-        <span class="chip-tag ham">Legit</span>
-      </button>
-      <button class="chip" onclick="loadDemo('nl')">
-        <div class="chip-dot news"></div>
-        <div class="chip-text">Morning newsletter</div>
-        <span class="chip-tag news">News</span>
-      </button>
-    </div>
-
-    <a href="/" class="back-link">← Back to home</a>
-
-  </div>
-</div>
-
-<!-- ══ RIGHT ══ -->
-<div class="right">
-
-  <div class="right-top">
-    <h2>Analyse <span>Email</span></h2>
-    <span class="char-counter" id="cc">0 chars</span>
+  <!-- Heading -->
+  <div class="page-head">
+    <div class="page-eyebrow">Manual Scan</div>
+    <h1 class="page-title">Paste your email,<br>get the <em>verdict</em></h1>
   </div>
 
-  <div class="ta-card" id="ta-card">
-    <div class="ta-label">Raw email input</div>
+  <!-- Main card -->
+  <div class="main-card">
+    <div class="corner-bl"></div>
+
+    <div class="field-label">Email Content</div>
     <textarea
-      id="ta"
-      placeholder="Paste the full email here — headers optional…"
-      oninput="onInput()"
-      onfocus="document.getElementById('ta-card').classList.add('focused')"
-      onblur="document.getElementById('ta-card').classList.remove('focused')"
+      class="email-textarea"
+      id="emailInput"
+      placeholder="Paste full email here — headers, subject, body...&#10;&#10;From: sender@example.com&#10;Subject: You've won!&#10;&#10;Congratulations! Click here to claim..."
     ></textarea>
-  </div>
 
-  <div class="actions">
-    <button class="btn-analyse" id="abtn" onclick="analyse()">
-      <span id="abtn-ico">→</span>
-      <span id="abtn-txt">Analyse</span>
-      <div class="spin" id="spin"></div>
+    <button class="scan-btn" id="scanBtn" onclick="scanEmail()">
+      <div class="spinner"></div>
+      <span class="btn-text-label">⚡ Analyse Email</span>
     </button>
-    <button class="btn-clear" onclick="clearAll()">✕ Clear</button>
-  </div>
 
-  <div class="result-card" id="result" role="alert" aria-live="polite">
-    <div class="result-top">
-      <div class="result-icon-wrap" id="r-icon"></div>
-      <div>
-        <div class="result-verdict" id="r-verdict"></div>
-        <div class="result-conf"    id="r-conf"></div>
+    <div class="error-box" id="errorBox"></div>
+
+    <!-- Result -->
+    <div class="result-panel" id="resultPanel">
+      <div class="result-divider"><span>Analysis Result</span></div>
+      <div class="result-box" id="resultBox">
+        <div class="result-header">
+          <div class="result-verdict-icon" id="verdictIcon"></div>
+          <div class="result-verdict-text">
+            <div class="result-verdict-label" id="verdictLabel"></div>
+            <div class="result-verdict-title" id="verdictTitle"></div>
+          </div>
+        </div>
+        <div class="prob-row">
+          <div class="prob-label">
+            <span>Confidence Score</span>
+            <strong id="probText">0%</strong>
+          </div>
+          <div class="prob-track">
+            <div class="prob-fill" id="probFill" style="width:0%"></div>
+          </div>
+        </div>
+        <div class="meta-chips" id="metaChips"></div>
       </div>
     </div>
-    <div class="prob-row">
-      <span class="prob-label">Spam probability</span>
-      <div class="prob-track"><div class="prob-fill" id="r-bar" style="width:0%"></div></div>
-      <span class="prob-label" id="r-pct"></span>
-    </div>
-    <div class="result-tip" id="r-tip"></div>
+
+  </div>
+
+  <!-- Bottom strip -->
+  <div class="bottom-strip">
+    <span class="strip-text"><span class="dot-live"></span>Model active · No data stored</span>
+    <span class="strip-text">Deep Shield Mail · v2.0</span>
   </div>
 
 </div>
 
 <script>
-const demos = {
-  spam1:`From: agent.james@lucky-intl-lottery.com
-To: you@example.com
-Subject: CONGRATULATIONS! You have won £850,000 — Claim Now!
-Date: Mon, 19 May 2025 03:12:44 +0000
+async function scanEmail() {
+  const input  = document.getElementById('emailInput');
+  const btn    = document.getElementById('scanBtn');
+  const errBox = document.getElementById('errorBox');
+  const panel  = document.getElementById('resultPanel');
+  const raw    = input.value.trim();
 
-Dear Lucky Winner,
+  errBox.classList.remove('visible');
+  panel.classList.remove('visible');
 
-We are pleased to inform you that your email address has been selected as the WINNER of the International Email Lottery Draw for the sum of EIGHT HUNDRED AND FIFTY THOUSAND POUNDS (£850,000.00).
+  if (!raw) {
+    errBox.textContent = 'Please paste an email first.';
+    errBox.classList.add('visible');
+    return;
+  }
 
-To claim your prize reply immediately with your Full Name, Home Address, Phone Number and a Copy of ID.
-
-Contact: agent.james@lucky-lottery-intl.net
-REF: INTL/2025/WIN/00417
-
-CONFIDENTIAL — Do not share this email.`,
-
-  spam2:`From: security-alert@secure-barclays-verify.com
-To: you@example.com
-Subject: Urgent: Your account has been suspended — verify immediately
-Date: Tue, 20 May 2025 11:45:00 +0000
-
-Dear Valued Customer,
-
-We detected unusual activity on your Barclays Online Banking account. It has been temporarily suspended for your protection.
-
-To restore access, verify your details within 24 hours:
->> http://barclays-secure-verify.xyz/login <<
-
-Failure to verify will result in permanent account closure.
-
-Barclays Security Team`,
-
-  spam3:`From: deals@ultra-slim-formula.net
-To: you@example.com
-Subject: Doctors HATE this! Lose 30 lbs in 30 days — Limited stock!
-Date: Wed, 21 May 2025 08:00:00 +0000
-
-Hi there,
-
-Our revolutionary ULTRA SLIM FORMULA helped thousands lose 30 pounds in ONE month! No diet. No exercise. 100% natural.
-
-ORDER NOW — 70% OFF today only!
-http://ultra-slim-buy.net/order-now`,
-
-  ham1:`From: priya.sharma@company.com
-To: you@example.com
-Subject: Q3 planning sync — Thursday 3pm
-Date: Thu, 22 May 2025 09:15:00 +0000
-
-Hi team,
-
-Let's sync on Q3 planning this Thursday at 3pm IST. Agenda:
-1. OKR review from Q2
-2. Engineering roadmap
-3. Cross-team dependencies
-4. Hiring plan
-
-Google Meet link in the calendar invite. Block 90 min.
-
-Best, Priya`,
-
-  ham2:`From: notifications@github.com
-To: you@example.com
-Subject: [deepshield/ml-pipeline] PR #47: Add BERT feature extractor
-Date: Thu, 22 May 2025 14:30:00 +0000
-
-@rohit-dev opened pull request #47 in deepshield/ml-pipeline
-
-Add BERT feature extractor for improved spam detection
-
-Changes:
-- src/features/bert_extractor.py  (+312 -0)
-- tests/test_bert_extractor.py   (+97  -0)
-
-Reviewer requested: @you
-https://github.com/deepshield/ml-pipeline/pull/47`,
-
-  nl:`From: editorial@morningbrew.com
-To: you@example.com
-Subject: Morning Brew — AI regulation, Fed rates & your Tuesday briefing
-Date: Tue, 20 May 2025 06:00:00 +0000
-
-Good morning!
-
-AI REGULATION — EU AI Act enforcement starts today for high-risk systems.
-FED UPDATE — Rates held at 4.25–4.5%; Fed needs more data before cuts.
-MARKETS — S&P 500 up 0.4%. Tech led. Bond yields eased.
-
-Have a great Tuesday.
-— The Morning Brew Team`
-};
-
-function loadDemo(k) {
-  document.getElementById('ta').value = demos[k];
-  onInput();
-  document.getElementById('result').className = 'result-card';
-}
-
-function onInput() {
-  const n   = document.getElementById('ta').value.length;
-  const cc  = document.getElementById('cc');
-  cc.textContent = n.toLocaleString() + ' chars';
-  cc.classList.toggle('active', n > 0);
-}
-
-function clearAll() {
-  document.getElementById('ta').value = '';
-  onInput();
-  document.getElementById('result').className = 'result-card';
-}
-
-async function analyse() {
-  const raw = document.getElementById('ta').value.trim();
-  if (!raw) { document.getElementById('ta').focus(); return; }
-
-  const btn  = document.getElementById('abtn');
-  const spin = document.getElementById('spin');
-  const ico  = document.getElementById('abtn-ico');
-  const txt  = document.getElementById('abtn-txt');
-
+  btn.classList.add('loading');
   btn.disabled = true;
-  spin.style.display = 'block';
-  ico.style.display  = 'none';
-  txt.textContent    = 'Analysing…';
 
   try {
     const res  = await fetch('/api/predict/manual', {
-      method : 'POST',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body   : JSON.stringify({ raw }),
+      body: JSON.stringify({ raw }),
     });
     const data = await res.json();
+
     if (data.error) throw new Error(data.error);
 
     const isSpam = data.prediction === 1;
-    const prob   = ((data.probability || 0) * 100).toFixed(1);
-    const cls    = isSpam ? 'spam' : 'ham';
+    const prob   = Math.round((data.probability || 0) * 100);
+    const box    = document.getElementById('resultBox');
 
-    document.getElementById('result').className     = 'result-card ' + cls;
-    document.getElementById('r-icon').textContent   = isSpam ? '✕' : '✓';
-    document.getElementById('r-verdict').textContent = data.label || (isSpam ? 'Spam Detected' : 'Looks Legitimate');
-    document.getElementById('r-conf').textContent   = 'Confidence · ' + prob + '%';
-    document.getElementById('r-pct').textContent    = prob + '%';
+    box.className      = 'result-box ' + (isSpam ? 'spam' : 'ham');
+    document.getElementById('verdictIcon').textContent  = isSpam ? '🚨' : '✅';
+    document.getElementById('verdictLabel').textContent = isSpam ? 'Threat Detected' : 'Clean Email';
+    document.getElementById('verdictTitle').textContent = isSpam ? 'SPAM' : 'HAM';
+    document.getElementById('probText').textContent     = prob + '%';
 
-    setTimeout(() => { document.getElementById('r-bar').style.width = prob + '%'; }, 60);
+    setTimeout(() => {
+      document.getElementById('probFill').style.width = prob + '%';
+    }, 100);
 
-    document.getElementById('r-tip').textContent = isSpam
-      ? 'This email shows patterns commonly associated with spam or phishing. Do not click any links or share personal information.'
-      : 'No strong spam signals detected. This email appears legitimate, but always exercise caution with unexpected messages.';
+    const chips = [
+      `Confidence: ${prob}%`,
+      isSpam ? 'Flagged' : 'Cleared',
+      data.label || (isSpam ? 'Spam' : 'Ham'),
+    ];
+    document.getElementById('metaChips').innerHTML =
+      chips.map(c => `<span class="chip">${c}</span>`).join('');
 
-  } catch (e) {
-    alert('Error: ' + e.message);
+    panel.classList.add('visible');
+  } catch (err) {
+    errBox.textContent = '⚠ ' + (err.message || 'Prediction failed. Try again.');
+    errBox.classList.add('visible');
   } finally {
-    btn.disabled       = false;
-    spin.style.display = 'none';
-    ico.style.display  = 'inline';
-    txt.textContent    = 'Analyse';
+    btn.classList.remove('loading');
+    btn.disabled = false;
   }
 }
+
+/* allow Ctrl+Enter to submit */
+document.getElementById('emailInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) scanEmail();
+});
+
+/* ══ Particle background (same as index) ══ */
+(function() {
+  const canvas = document.getElementById('bg');
+  const ctx    = canvas.getContext('2d');
+  let W, H, particles = [];
+  const GOLD = [201,168,76], WHITE = [255,255,255];
+
+  function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+  function rand(a,b) { return a + Math.random()*(b-a); }
+
+  function create() {
+    const g = Math.random()<0.4;
+    const [r,g2,b] = g ? GOLD : WHITE;
+    return { x:rand(0,W), y:rand(0,H), vx:rand(-0.12,0.12), vy:rand(-0.08,-0.25),
+             size:rand(0.5,g?1.8:1), alpha:rand(0.1,0.6), r, g:g2, b,
+             flicker:rand(0.004,0.018), phase:rand(0,Math.PI*2) };
+  }
+
+  function draw() {
+    ctx.clearRect(0,0,W,H);
+    const gr = ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*0.65);
+    gr.addColorStop(0,'rgba(12,8,24,0.4)'); gr.addColorStop(1,'rgba(2,2,6,0.5)');
+    ctx.fillStyle=gr; ctx.fillRect(0,0,W,H);
+    for (const p of particles) {
+      p.phase += p.flicker;
+      const a = p.alpha*(0.6+0.4*Math.sin(p.phase));
+      ctx.fillStyle=`rgba(${p.r},${p.g},${p.b},${a})`;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill();
+      p.x+=p.vx; p.y+=p.vy;
+      if(p.y<-5) p.y=H+5; if(p.x<-5) p.x=W+5; if(p.x>W+5) p.x=-5;
+    }
+    requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  particles = Array.from({length:80}, create);
+  draw();
+})();
 </script>
+
 </body>
 </html>

@@ -34,4 +34,4 @@ ENV PYTHONPATH=/app
 
 EXPOSE 8000
 
-CMD ["gunicorn", "--workers", "2", "--threads", "2", "--bind", "0.0.0.0:8000", "serving.api.app:app"]
+CMD ["gunicorn", "--workers", "2", "--threads", "2", "--timeout", "120", "--bind", "0.0.0.0:8000", "serving.api.app:app"]

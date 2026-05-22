@@ -239,3 +239,5 @@ wordcloud==1.9.6
 xgboost==3.2.0
 yarl==1.23.0
 zipp==3.23.1
+google-auth-oauthlib
+google-api-python-client

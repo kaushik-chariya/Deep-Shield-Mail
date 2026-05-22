@@ -5,504 +5,609 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Deep Shield Mail</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Grotesk:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --gold:    #c8a84b;
-  --gold2:   #e8c96a;
-  --gold3:   rgba(200,168,75,0.12);
-  --dim:     rgba(200,168,75,0.06);
-  --ink:     #f0ede6;
-  --ink2:    #9a9080;
-  --ink3:    #5a5448;
-  --bg:      #07070a;
-  --glass:   rgba(10,10,14,0.82);
-  --border:  rgba(200,168,75,0.18);
-  --border2: rgba(255,255,255,0.06);
+  --gold:       #c9a84c;
+  --gold-light: #f0d080;
+  --gold-dim:   rgba(201,168,76,0.15);
+  --gold-glow:  rgba(201,168,76,0.35);
+  --bg:         #04040a;
+  --bg2:        #080810;
+  --ink:        #f2efe8;
+  --ink2:       #9a9488;
+  --ink3:       #4a4840;
+  --glass:      rgba(8,8,16,0.75);
+  --border:     rgba(201,168,76,0.22);
+  --red:        #e05050;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
   width: 100%; height: 100%;
-  overflow: hidden;
   background: var(--bg);
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Space Grotesk', sans-serif;
   color: var(--ink);
-}
-
-/* ════════════════════════════════
-   INFINITY ZOOM BACKGROUND
-════════════════════════════════ */
-.zoom-stage {
-  position: fixed; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  perspective: 600px;
   overflow: hidden;
 }
 
-/* Rotating star-field dots */
-.starfield {
-  position: absolute; inset: -20%;
-  animation: rotSlow 120s linear infinite;
+/* ══════════════════════════════════════
+   BACKGROUND — particle nebula
+══════════════════════════════════════ */
+canvas#bg {
+  position: fixed;
+  inset: 0;
+  width: 100%; height: 100%;
+  z-index: 0;
 }
 
-.starfield::before, .starfield::after {
-  content: '';
-  position: absolute; inset: 0;
-  background-image:
-    radial-gradient(1px 1px at 12% 18%, rgba(200,168,75,0.5) 0%, transparent 100%),
-    radial-gradient(1px 1px at 35% 72%, rgba(255,255,255,0.3) 0%, transparent 100%),
-    radial-gradient(1px 1px at 58% 9%,  rgba(200,168,75,0.4) 0%, transparent 100%),
-    radial-gradient(1px 1px at 79% 41%, rgba(255,255,255,0.25) 0%, transparent 100%),
-    radial-gradient(1px 1px at 23% 88%, rgba(200,168,75,0.35) 0%, transparent 100%),
-    radial-gradient(1px 1px at 91% 63%, rgba(255,255,255,0.2) 0%, transparent 100%),
-    radial-gradient(1px 1px at 47% 55%, rgba(200,168,75,0.3) 0%, transparent 100%),
-    radial-gradient(1px 1px at 66% 27%, rgba(255,255,255,0.35) 0%, transparent 100%),
-    radial-gradient(1px 1px at 4%  44%, rgba(200,168,75,0.4) 0%, transparent 100%),
-    radial-gradient(1px 1px at 83% 82%, rgba(255,255,255,0.2) 0%, transparent 100%);
+/* ══════════════════════════════════════
+   NOISE OVERLAY
+══════════════════════════════════════ */
+.noise {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
 }
 
-.starfield::after {
-  background-image:
-    radial-gradient(1px 1px at 18% 36%, rgba(200,168,75,0.3) 0%, transparent 100%),
-    radial-gradient(1px 1px at 61% 14%, rgba(255,255,255,0.25) 0%, transparent 100%),
-    radial-gradient(1px 1px at 42% 78%, rgba(200,168,75,0.45) 0%, transparent 100%),
-    radial-gradient(1px 1px at 87% 22%, rgba(255,255,255,0.3) 0%, transparent 100%),
-    radial-gradient(1px 1px at 29% 59%, rgba(200,168,75,0.25) 0%, transparent 100%),
-    radial-gradient(1px 1px at 74% 91%, rgba(255,255,255,0.2) 0%, transparent 100%),
-    radial-gradient(1px 1px at 5%  71%, rgba(200,168,75,0.4) 0%, transparent 100%),
-    radial-gradient(1px 1px at 52% 33%, rgba(255,255,255,0.3) 0%, transparent 100%);
-  animation: rotSlow 80s linear infinite reverse;
-}
-
-@keyframes rotSlow {
-  to { transform: rotate(360deg); }
-}
-
-/* Tunnel rings — core infinity zoom effect */
-.tunnel {
-  position: absolute;
-  width: 100vw; height: 100vh;
-  display: flex; align-items: center; justify-content: center;
-}
-
-.ring {
-  position: absolute;
-  border-radius: 50%;
-  border: 1px solid rgba(200,168,75,0.15);
-  animation: zoomRing 6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* 8 rings with staggered delays create seamless infinite tunnel */
-.ring:nth-child(1)  { width: 80px;  height: 80px;  animation-delay: 0s; }
-.ring:nth-child(2)  { width: 80px;  height: 80px;  animation-delay: -0.75s; }
-.ring:nth-child(3)  { width: 80px;  height: 80px;  animation-delay: -1.5s; }
-.ring:nth-child(4)  { width: 80px;  height: 80px;  animation-delay: -2.25s; }
-.ring:nth-child(5)  { width: 80px;  height: 80px;  animation-delay: -3s; }
-.ring:nth-child(6)  { width: 80px;  height: 80px;  animation-delay: -3.75s; }
-.ring:nth-child(7)  { width: 80px;  height: 80px;  animation-delay: -4.5s; }
-.ring:nth-child(8)  { width: 80px;  height: 80px;  animation-delay: -5.25s; }
-
-@keyframes zoomRing {
-  0%   { transform: scale(0.05); opacity: 0; border-color: rgba(200,168,75,0.5); }
-  15%  { opacity: 1; }
-  70%  { border-color: rgba(200,168,75,0.08); }
-  100% { transform: scale(22); opacity: 0; border-color: rgba(200,168,75,0); }
-}
-
-/* hexagon grid lines — secondary depth layer */
-.hex-grid {
-  position: absolute; inset: -10%;
-  background-image:
-    linear-gradient(rgba(200,168,75,0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(200,168,75,0.035) 1px, transparent 1px);
-  background-size: 64px 64px;
-  animation: gridZoom 8s linear infinite;
-  transform-origin: center;
-}
-
-@keyframes gridZoom {
-  0%   { transform: scale(1) rotate(0deg); opacity: 0.6; }
-  50%  { opacity: 1; }
-  100% { transform: scale(1.6) rotate(0.5deg); opacity: 0.6; }
-}
-
-/* Radial vignette to keep center dark & dramatic */
-.vignette {
-  position: absolute; inset: 0;
-  background: radial-gradient(
-    ellipse 60% 60% at 50% 50%,
-    transparent 0%,
-    rgba(7,7,10,0.5) 55%,
-    rgba(7,7,10,0.95) 100%
-  );
-}
-
-/* Soft gold glow at center */
-.glow-center {
-  position: absolute;
-  width: 500px; height: 500px;
-  border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(200,168,75,0.06) 0%, transparent 70%);
-  animation: glowPulse 4s ease-in-out infinite;
-}
-
-@keyframes glowPulse {
-  0%,100% { transform: scale(1); opacity: 0.7; }
-  50%      { transform: scale(1.15); opacity: 1; }
-}
-
-/* ════════════════════════════════
-   FOREGROUND / AUTH CARD
-════════════════════════════════ */
+/* ══════════════════════════════════════
+   MAIN LAYOUT
+══════════════════════════════════════ */
 .page {
-  position: fixed; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  z-index: 10;
-  padding: 1rem;
+  position: fixed; inset: 0; z-index: 10;
+  display: grid;
+  grid-template-columns: 1fr 440px 1fr;
+  grid-template-rows: 1fr auto 1fr;
+  align-items: center;
+  padding: 2rem;
 }
 
-.card-wrap {
-  width: 100%;
-  max-width: 420px;
-  animation: cardIn 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+/* ── Left panel — brand story ── */
+.brand-panel {
+  grid-column: 1;
+  grid-row: 2;
+  padding-right: 4rem;
+  opacity: 0;
+  animation: fadeSlideRight 1s cubic-bezier(0.22,1,0.36,1) 0.3s forwards;
 }
 
-@keyframes cardIn {
-  from { opacity: 0; transform: translateY(28px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+@keyframes fadeSlideRight {
+  from { opacity: 0; transform: translateX(-30px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
 
-/* ── Logo mark ── */
-.logo-wrap {
-  display: flex; flex-direction: column;
-  align-items: center; gap: 0;
-  margin-bottom: 2.4rem;
+.brand-eyebrow {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem; letter-spacing: 0.28em;
+  color: var(--gold); text-transform: uppercase;
+  margin-bottom: 1.4rem;
+  display: flex; align-items: center; gap: 10px;
+}
+.brand-eyebrow::before {
+  content: '';
+  width: 28px; height: 1px;
+  background: var(--gold);
 }
 
-.logo-shield {
+.brand-headline {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2.2rem, 3vw, 3.2rem);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--ink);
+  margin-bottom: 1.2rem;
+}
+
+.brand-headline em {
+  font-style: italic;
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.brand-desc {
+  font-size: 0.82rem;
+  color: var(--ink2);
+  line-height: 1.8;
+  max-width: 280px;
+  margin-bottom: 2.2rem;
+  font-weight: 300;
+}
+
+.stats-row {
+  display: flex; gap: 2rem;
+}
+
+.stat {
+  display: flex; flex-direction: column; gap: 3px;
+}
+
+.stat-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.6rem; font-weight: 700;
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stat-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.55rem; letter-spacing: 0.15em;
+  color: var(--ink3); text-transform: uppercase;
+}
+
+/* ── Center — auth card ── */
+.center-panel {
+  grid-column: 2;
+  grid-row: 2;
+  opacity: 0;
+  animation: fadeUp 0.9s cubic-bezier(0.22,1,0.36,1) 0.1s forwards;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Logo ── */
+.logo-block {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.shield-wrap {
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  width: 64px; height: 64px;
+  margin-bottom: 1rem;
   position: relative;
-  width: 72px; height: 72px;
-  margin-bottom: 1.1rem;
 }
 
-/* SVG shield drawn in CSS */
+.shield-wrap::before {
+  content: '';
+  position: absolute; inset: -8px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--gold-glow) 0%, transparent 70%);
+  animation: pulse 3s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,100% { opacity: 0.6; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.12); }
+}
+
 .shield-svg {
-  width: 72px; height: 72px;
-  filter: drop-shadow(0 0 18px rgba(200,168,75,0.35));
-  animation: shieldPulse 3s ease-in-out infinite;
-}
-
-@keyframes shieldPulse {
-  0%,100% { filter: drop-shadow(0 0 18px rgba(200,168,75,0.3)); }
-  50%      { filter: drop-shadow(0 0 32px rgba(200,168,75,0.55)); }
+  width: 52px; height: 58px;
+  filter: drop-shadow(0 0 12px rgba(201,168,76,0.4));
 }
 
 .logo-name {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 2rem; font-weight: 300;
-  letter-spacing: 0.12em;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem; font-weight: 400;
+  letter-spacing: 0.06em;
   color: var(--ink);
-  text-transform: uppercase;
-  line-height: 1;
-  margin-bottom: 5px;
 }
 
-.logo-name strong {
-  font-weight: 600;
-  background: linear-gradient(135deg, var(--gold) 0%, var(--gold2) 50%, var(--gold) 100%);
+.logo-name b {
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--gold-light) 0%, var(--gold) 60%);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   background-clip: text;
-  background-size: 200% 100%;
-  animation: shimmer 3s linear infinite;
 }
 
-@keyframes shimmer {
-  0%   { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
-}
-
-.logo-tagline {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.6rem; font-weight: 300;
-  letter-spacing: 0.25em;
-  color: var(--ink3);
-  text-transform: uppercase;
+.logo-sub {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.55rem; letter-spacing: 0.3em;
+  color: var(--ink3); text-transform: uppercase;
+  margin-top: 4px;
 }
 
 /* ── Glass card ── */
 .glass-card {
   background: var(--glass);
   border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 2.2rem 2rem;
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  border-radius: 24px;
+  padding: 2.4rem 2.2rem 2rem;
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  box-shadow:
+    0 0 0 1px rgba(201,168,76,0.05) inset,
+    0 40px 100px rgba(0,0,0,0.7),
+    0 0 80px rgba(201,168,76,0.05);
   position: relative;
   overflow: hidden;
-  box-shadow:
-    0 0 0 1px rgba(200,168,75,0.06) inset,
-    0 32px 80px rgba(0,0,0,0.6),
-    0 0 60px rgba(200,168,75,0.04);
 }
 
-/* top rim highlight */
+/* top rim */
 .glass-card::before {
   content: '';
   position: absolute;
-  top: 0; left: 15%; right: 15%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(200,168,75,0.45), transparent);
+  top: 0; left: 10%; right: 10%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201,168,76,0.6), transparent);
 }
 
-/* bottom shadow */
+/* corner ornaments */
 .glass-card::after {
   content: '';
   position: absolute;
-  bottom: 0; left: 20%; right: 20%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(200,168,75,0.1), transparent);
+  top: 16px; right: 16px;
+  width: 32px; height: 32px;
+  border-top: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  border-radius: 0 8px 0 0;
+  opacity: 0.5;
 }
 
-/* ── Card heading ── */
+.corner-bl {
+  position: absolute;
+  bottom: 16px; left: 16px;
+  width: 32px; height: 32px;
+  border-bottom: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  border-radius: 0 0 0 8px;
+  opacity: 0.5;
+}
+
+.card-heading {
+  text-align: center;
+  margin-bottom: 1.8rem;
+}
+
 .card-title {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 1.45rem; font-weight: 400;
-  color: var(--ink);
-  letter-spacing: 0.02em;
-  margin-bottom: 4px;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.2rem; font-weight: 400;
+  color: var(--ink); letter-spacing: 0.02em;
+  margin-bottom: 5px;
 }
 
-.card-sub {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.62rem; font-weight: 300;
-  color: var(--ink3);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: 2rem;
-  display: flex; align-items: center; gap: 7px;
+.card-rule {
+  display: flex; align-items: center; gap: 10px;
+  justify-content: center;
 }
 
-.card-sub::after {
+.card-rule span {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.57rem; letter-spacing: 0.18em;
+  color: var(--ink3); text-transform: uppercase;
+}
+
+.card-rule::before, .card-rule::after {
   content: '';
-  flex: 1; height: 1px;
+  width: 36px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border));
+}
+.card-rule::after {
   background: linear-gradient(90deg, var(--border), transparent);
 }
 
-/* ── Flash alerts ── */
-.alerts { display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.2rem; }
+/* ── Alerts ── */
+.alerts { margin-bottom: 1.2rem; display: flex; flex-direction: column; gap: 8px; }
 
 .alert {
-  padding: 0.65rem 0.9rem;
+  padding: 0.6rem 0.9rem;
   border-radius: 10px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem; font-weight: 300;
-  border: 1px solid;
-  line-height: 1.5;
-  letter-spacing: 0.02em;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.65rem; letter-spacing: 0.03em;
+  border: 1px solid; line-height: 1.5;
 }
-.alert-success { background: rgba(30,120,74,0.1);  border-color: rgba(30,120,74,0.3);   color: #6ecfa0; }
-.alert-danger  { background: rgba(192,57,43,0.1);  border-color: rgba(192,57,43,0.3);   color: #e07060; }
-.alert-warning { background: rgba(200,168,75,0.08); border-color: rgba(200,168,75,0.3); color: var(--gold2); }
-.alert-info    { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); color: var(--ink2); }
+.alert-success { background: rgba(30,120,74,0.1);  border-color: rgba(30,120,74,0.3);  color: #6ecfa0; }
+.alert-danger  { background: rgba(192,57,43,0.1);  border-color: rgba(192,57,43,0.3);  color: #e07060; }
+.alert-warning { background: rgba(201,168,76,0.08); border-color: rgba(201,168,76,0.3); color: var(--gold-light); }
+.alert-info    { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08); color: var(--ink2); }
 
-/* ── Auth buttons ── */
+/* ── Buttons ── */
 .btn {
-  display: flex; align-items: center; gap: 13px;
-  width: 100%; padding: 1rem 1.25rem;
-  border-radius: 12px;
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.92rem; font-weight: 500;
+  display: flex; align-items: center; gap: 14px;
+  width: 100%; padding: 1.05rem 1.2rem;
+  border-radius: 14px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.9rem; font-weight: 500;
   text-decoration: none; cursor: pointer;
-  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative; overflow: hidden;
   border: 1px solid;
-  margin-bottom: 0.75rem;
-  letter-spacing: 0.01em;
+  transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+  position: relative; overflow: hidden;
+  margin-bottom: 0.8rem;
 }
 
-/* shine sweep on hover */
-.btn::after {
+/* shimmer */
+.btn::before {
   content: '';
   position: absolute;
-  top: 0; left: -100%;
-  width: 60%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
-  transition: left 0.4s ease;
+  top: 0; left: -120%;
+  width: 50%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+  transition: left 0.5s ease;
 }
-.btn:hover::after { left: 160%; }
-
+.btn:hover::before { left: 160%; }
 .btn:hover { transform: translateY(-2px); }
-.btn:active { transform: translateY(0) scale(0.99); }
+.btn:active { transform: scale(0.99); }
 
-/* Gmail — gold premium */
+/* Gmail gold */
 .btn-gmail {
-  background: linear-gradient(135deg, rgba(200,168,75,0.12) 0%, rgba(200,168,75,0.06) 100%);
-  border-color: rgba(200,168,75,0.35);
+  background: linear-gradient(135deg, rgba(201,168,76,0.14), rgba(201,168,76,0.06));
+  border-color: rgba(201,168,76,0.38);
   color: var(--ink);
-  box-shadow: 0 4px 20px rgba(200,168,75,0.08), inset 0 1px 0 rgba(200,168,75,0.15);
+  box-shadow: 0 4px 24px rgba(201,168,76,0.1), inset 0 1px 0 rgba(201,168,76,0.18);
 }
 .btn-gmail:hover {
-  background: linear-gradient(135deg, rgba(200,168,75,0.2) 0%, rgba(200,168,75,0.1) 100%);
-  border-color: rgba(200,168,75,0.6);
-  box-shadow: 0 8px 32px rgba(200,168,75,0.18), inset 0 1px 0 rgba(200,168,75,0.2);
+  background: linear-gradient(135deg, rgba(201,168,76,0.22), rgba(201,168,76,0.1));
+  border-color: rgba(201,168,76,0.65);
+  box-shadow: 0 8px 36px rgba(201,168,76,0.22), inset 0 1px 0 rgba(201,168,76,0.25);
 }
 
-/* Manual — subtle glass */
+/* Manual glass */
 .btn-manual {
-  background: rgba(255,255,255,0.03);
-  border-color: rgba(255,255,255,0.09);
+  background: rgba(255,255,255,0.025);
+  border-color: rgba(255,255,255,0.08);
   color: var(--ink2);
-  box-shadow: none;
 }
 .btn-manual:hover {
-  background: rgba(255,255,255,0.06);
-  border-color: rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.055);
+  border-color: rgba(255,255,255,0.15);
   color: var(--ink);
 }
 
 /* disabled */
 .btn-off {
-  opacity: 0.3;
+  opacity: 0.28;
   pointer-events: none;
-  cursor: not-allowed;
 }
 
-/* icon circle */
 .btn-icon {
-  width: 36px; height: 36px; border-radius: 9px;
+  width: 38px; height: 38px; flex-shrink: 0;
+  border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 17px; flex-shrink: 0;
+  font-size: 18px;
 }
-.btn-gmail  .btn-icon { background: rgba(200,168,75,0.15); border: 1px solid rgba(200,168,75,0.25); }
-.btn-manual .btn-icon { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
+.btn-gmail  .btn-icon { background: rgba(201,168,76,0.12); border: 1px solid rgba(201,168,76,0.25); }
+.btn-manual .btn-icon { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
 
-.btn-text { flex: 1; text-align: left; }
-.btn-text small {
+.btn-body { flex: 1; }
+.btn-label { display: block; font-weight: 500; }
+.btn-hint {
   display: block;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.58rem; font-weight: 300;
-  color: var(--ink3); letter-spacing: 0.07em;
-  margin-top: 1px;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.57rem; letter-spacing: 0.1em;
+  margin-top: 2px;
 }
-.btn-gmail .btn-text small { color: rgba(200,168,75,0.55); }
+.btn-gmail  .btn-hint { color: rgba(201,168,76,0.5); }
+.btn-manual .btn-hint { color: var(--ink3); }
 
-.btn-chevron {
-  font-size: 0.85rem; color: var(--ink3);
+.btn-arrow {
+  font-size: 1rem; color: var(--ink3);
   transition: transform 0.2s, color 0.2s;
 }
-.btn:hover .btn-chevron { transform: translateX(4px); color: var(--gold); }
+.btn:hover .btn-arrow { transform: translateX(4px); color: var(--gold); }
 
-.badge-env {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.56rem; padding: 3px 8px;
+.env-badge {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.52rem; padding: 3px 7px;
   border-radius: 5px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.07);
-  color: var(--ink3);
-  margin-left: auto;
+  background: rgba(224,80,80,0.1);
+  border: 1px solid rgba(224,80,80,0.25);
+  color: var(--red);
+  letter-spacing: 0.05em;
 }
 
 /* ── Divider ── */
-.divider {
-  display: flex; align-items: center; gap: 10px;
-  margin: 0.2rem 0 0.95rem;
+.or-row {
+  display: flex; align-items: center; gap: 12px;
+  margin: 0.1rem 0 0.9rem;
 }
-.divider span {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.6rem; color: var(--ink3);
-  letter-spacing: 0.1em; flex-shrink: 0;
+.or-row span {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.58rem; letter-spacing: 0.12em;
+  color: var(--ink3); flex-shrink: 0;
 }
-.divider::before, .divider::after {
+.or-row::before, .or-row::after {
   content: ''; flex: 1; height: 1px;
-  background: var(--border2);
+  background: rgba(255,255,255,0.06);
 }
 
-/* ── Footer ── */
-.card-footer {
+/* ── Status bar ── */
+.status-bar {
   margin-top: 1.6rem;
-  padding-top: 1.25rem;
+  padding-top: 1.2rem;
   border-top: 1px solid rgba(255,255,255,0.05);
-  display: flex; align-items: center; gap: 8px;
-  justify-content: center;
+  display: flex; align-items: center; justify-content: space-between;
 }
 
-.live-dot {
+.status-left {
+  display: flex; align-items: center; gap: 7px;
+}
+
+.dot {
   width: 6px; height: 6px; border-radius: 50%;
   background: #4ecb71;
+  box-shadow: 0 0 7px rgba(78,203,113,0.6);
   animation: blink 2.5s ease-in-out infinite;
-  flex-shrink: 0;
-  box-shadow: 0 0 6px rgba(78,203,113,0.5);
 }
 @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
 
-.card-footer p {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.6rem; font-weight: 300;
-  color: var(--ink3); letter-spacing: 0.06em;
+.status-text {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.57rem; letter-spacing: 0.1em;
+  color: var(--ink3);
+}
+
+.version-tag {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.52rem; letter-spacing: 0.1em;
+  color: var(--ink3);
+  padding: 2px 8px;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 4px;
+}
+
+/* ── Right panel — feature list ── */
+.feature-panel {
+  grid-column: 3;
+  grid-row: 2;
+  padding-left: 4rem;
+  opacity: 0;
+  animation: fadeSlideLeft 1s cubic-bezier(0.22,1,0.36,1) 0.5s forwards;
+}
+
+@keyframes fadeSlideLeft {
+  from { opacity: 0; transform: translateX(30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.feature-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.58rem; letter-spacing: 0.25em;
+  color: var(--gold); text-transform: uppercase;
+  margin-bottom: 1.6rem;
+  display: flex; align-items: center; gap: 10px;
+}
+.feature-label::after {
+  content: '';
+  width: 28px; height: 1px;
+  background: var(--gold);
+}
+
+.feature-list {
+  list-style: none;
+  display: flex; flex-direction: column; gap: 1.2rem;
+}
+
+.feature-item {
+  display: flex; align-items: flex-start; gap: 14px;
+  opacity: 0;
+  animation: fadeUp 0.6s cubic-bezier(0.22,1,0.36,1) forwards;
+}
+.feature-item:nth-child(1) { animation-delay: 0.7s; }
+.feature-item:nth-child(2) { animation-delay: 0.85s; }
+.feature-item:nth-child(3) { animation-delay: 1.0s; }
+.feature-item:nth-child(4) { animation-delay: 1.15s; }
+
+.feature-icon {
+  width: 32px; height: 32px; flex-shrink: 0;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--gold-dim);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+}
+
+.feature-body {}
+.feature-name {
+  font-size: 0.78rem; font-weight: 600;
+  color: var(--ink); margin-bottom: 2px;
+}
+.feature-desc {
+  font-size: 0.7rem; font-weight: 300;
+  color: var(--ink2); line-height: 1.5;
+}
+
+/* ── Bottom bar ── */
+.bottom-bar {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding-bottom: 1.4rem;
+  opacity: 0;
+  animation: fadeUp 0.8s cubic-bezier(0.22,1,0.36,1) 1.2s forwards;
+}
+
+.bottom-text {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.56rem; letter-spacing: 0.15em;
+  color: var(--ink3); text-align: center;
+}
+
+/* ── Responsive collapse ── */
+@media (max-width: 1100px) {
+  .page {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    overflow-y: auto;
+    align-content: center;
+  }
+  .brand-panel, .feature-panel { display: none; }
+  .center-panel { grid-column: 1; }
 }
 </style>
 </head>
 <body>
 
-<!-- ══ INFINITY ZOOM BACKGROUND ══ -->
-<div class="zoom-stage">
-  <div class="starfield"></div>
-  <div class="hex-grid"></div>
-  <div class="tunnel">
-    <div class="ring"></div>
-    <div class="ring"></div>
-    <div class="ring"></div>
-    <div class="ring"></div>
-    <div class="ring"></div>
-    <div class="ring"></div>
-    <div class="ring"></div>
-    <div class="ring"></div>
-  </div>
-  <div class="glow-center"></div>
-  <div class="vignette"></div>
-</div>
+<!-- Noise grain -->
+<div class="noise"></div>
 
-<!-- ══ AUTH PAGE ══ -->
+<!-- Particle canvas -->
+<canvas id="bg"></canvas>
+
+<!-- ══ PAGE ══ -->
 <div class="page">
-  <div class="card-wrap">
+
+  <!-- Left — brand story -->
+  <div class="brand-panel">
+    <div class="brand-eyebrow">Intelligence Layer</div>
+    <h1 class="brand-headline">
+      Protect your<br>inbox with<br><em>precision AI</em>
+    </h1>
+    <p class="brand-desc">
+      Deep Shield Mail uses advanced NLP models trained on 50,000+ emails to detect spam before it reaches you — with surgical accuracy.
+    </p>
+    <div class="stats-row">
+      <div class="stat">
+        <span class="stat-num">99.1%</span>
+        <span class="stat-label">Accuracy</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num">&lt;40ms</span>
+        <span class="stat-label">Latency</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num">12</span>
+        <span class="stat-label">Features</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Center — auth card -->
+  <div class="center-panel">
 
     <!-- Logo -->
-    <div class="logo-wrap">
-      <div class="logo-shield">
-        <svg class="shield-svg" viewBox="0 0 72 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <div class="logo-block">
+      <div class="shield-wrap">
+        <svg class="shield-svg" viewBox="0 0 52 58" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <linearGradient id="sg" x1="0" y1="0" x2="72" y2="80" gradientUnits="userSpaceOnUse">
-              <stop offset="0%"   stop-color="#e8c96a"/>
-              <stop offset="50%"  stop-color="#c8a84b"/>
-              <stop offset="100%" stop-color="#a07830"/>
+            <linearGradient id="sg" x1="0" y1="0" x2="52" y2="58" gradientUnits="userSpaceOnUse">
+              <stop offset="0%"   stop-color="#f0d080"/>
+              <stop offset="50%"  stop-color="#c9a84c"/>
+              <stop offset="100%" stop-color="#9a7030"/>
             </linearGradient>
-            <linearGradient id="sg2" x1="0" y1="0" x2="72" y2="80" gradientUnits="userSpaceOnUse">
-              <stop offset="0%"   stop-color="#e8c96a" stop-opacity="0.2"/>
-              <stop offset="100%" stop-color="#c8a84b" stop-opacity="0.05"/>
+            <linearGradient id="sg2" x1="0" y1="0" x2="52" y2="58" gradientUnits="userSpaceOnUse">
+              <stop offset="0%"   stop-color="#f0d080" stop-opacity="0.18"/>
+              <stop offset="100%" stop-color="#c9a84c" stop-opacity="0.04"/>
             </linearGradient>
           </defs>
-          <!-- Shield fill -->
-          <path d="M36 2L6 14V40C6 58 20 72 36 78C52 72 66 58 66 40V14L36 2Z" fill="url(#sg2)" stroke="url(#sg)" stroke-width="1.5"/>
-          <!-- Inner shield outline -->
-          <path d="M36 10L13 20V40C13 54 23 65 36 70C49 65 59 54 59 40V20L36 10Z" fill="none" stroke="url(#sg)" stroke-width="0.6" stroke-opacity="0.4"/>
-          <!-- Mail icon inside -->
-          <rect x="22" y="30" width="28" height="20" rx="2" fill="none" stroke="url(#sg)" stroke-width="1.5"/>
-          <path d="M22 32L36 43L50 32" stroke="url(#sg)" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M26 2L4 11V32C4 46 14 56 26 58C38 56 48 46 48 32V11L26 2Z"
+                fill="url(#sg2)" stroke="url(#sg)" stroke-width="1.2"/>
+          <path d="M26 9L10 17V32C10 43 17 51 26 53C35 51 42 43 42 32V17L26 9Z"
+                fill="none" stroke="url(#sg)" stroke-width="0.5" stroke-opacity="0.35"/>
+          <rect x="15" y="22" width="22" height="16" rx="2"
+                fill="none" stroke="url(#sg)" stroke-width="1.2"/>
+          <path d="M15 24L26 33L37 24" stroke="url(#sg)" stroke-width="1.2" stroke-linecap="round"/>
         </svg>
       </div>
-      <div class="logo-name">Deep <strong>Shield</strong></div>
-      <div class="logo-tagline">Mail · Protection · AI</div>
+      <div class="logo-name">Deep <b>Shield</b></div>
+      <div class="logo-sub">Mail · AI Protection</div>
     </div>
 
-    <!-- Glass Card -->
+    <!-- Card -->
     <div class="glass-card">
+      <div class="corner-bl"></div>
 
-      <div class="card-title">Secure Access</div>
-      <div class="card-sub">Choose authentication method</div>
+      <div class="card-heading">
+        <div class="card-title">Secure Access</div>
+        <div class="card-rule"><span>choose method</span></div>
+      </div>
 
-      <!-- Alerts -->
+      <!-- Flash alerts -->
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
         <div class="alerts">
@@ -517,46 +622,195 @@ html, body {
       {% if google_enabled %}
       <a href="/auth/gmail" class="btn btn-gmail">
         <div class="btn-icon">✉</div>
-        <div class="btn-text">
-          Continue with Gmail
-          <small>OAuth 2.0 · Read-only · Secure</small>
+        <div class="btn-body">
+          <span class="btn-label">Continue with Gmail</span>
+          <span class="btn-hint">OAuth 2.0 · Read-only · Encrypted</span>
         </div>
-        <span class="btn-chevron">›</span>
+        <span class="btn-arrow">›</span>
       </a>
       {% else %}
       <div class="btn btn-gmail btn-off">
         <div class="btn-icon">✉</div>
-        <div class="btn-text">
-          Continue with Gmail
-          <small>OAuth 2.0 · Read-only · Secure</small>
+        <div class="btn-body">
+          <span class="btn-label">Continue with Gmail</span>
+          <span class="btn-hint">OAuth 2.0 · Read-only · Encrypted</span>
         </div>
-        <span class="badge-env">ENV not set</span>
+        <span class="env-badge">ENV not set</span>
       </div>
       {% endif %}
 
-      <div class="divider">
-        <span>or</span>
-      </div>
+      <div class="or-row"><span>or</span></div>
 
       <!-- Manual -->
       <a href="/manual" class="btn btn-manual">
         <div class="btn-icon">⎘</div>
-        <div class="btn-text">
-          Paste Email Manually
-          <small>No login required</small>
+        <div class="btn-body">
+          <span class="btn-label">Paste Email Manually</span>
+          <span class="btn-hint">No login required</span>
         </div>
-        <span class="btn-chevron">›</span>
+        <span class="btn-arrow">›</span>
       </a>
 
-      <!-- Footer -->
-      <div class="card-footer">
-        <div class="live-dot"></div>
-        <p>Model active · Credentials never stored · Session only</p>
+      <!-- Status bar -->
+      <div class="status-bar">
+        <div class="status-left">
+          <div class="dot"></div>
+          <span class="status-text">Model active · Session only</span>
+        </div>
+        <span class="version-tag">v2.0</span>
       </div>
 
     </div>
   </div>
+
+  <!-- Right — features -->
+  <div class="feature-panel">
+    <div class="feature-label">What we detect</div>
+    <ul class="feature-list">
+      <li class="feature-item">
+        <div class="feature-icon">🔍</div>
+        <div class="feature-body">
+          <div class="feature-name">NLP Analysis</div>
+          <div class="feature-desc">TF-IDF vectors + hand-crafted features across 12 dimensions</div>
+        </div>
+      </li>
+      <li class="feature-item">
+        <div class="feature-icon">🛡</div>
+        <div class="feature-body">
+          <div class="feature-name">Header Inspection</div>
+          <div class="feature-desc">Domain matching, weekend sends, generic address detection</div>
+        </div>
+      </li>
+      <li class="feature-item">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-body">
+          <div class="feature-name">Real-time Scoring</div>
+          <div class="feature-desc">Probability score with confidence on every prediction</div>
+        </div>
+      </li>
+      <li class="feature-item">
+        <div class="feature-icon">☁️</div>
+        <div class="feature-body">
+          <div class="feature-name">Cloud Native</div>
+          <div class="feature-desc">Deployed on AWS EKS · Prometheus monitoring · Auto-scaling</div>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Bottom -->
+  <div class="bottom-bar">
+    <p class="bottom-text">Deep Shield Mail · Credentials never stored · End-to-end encrypted</p>
+  </div>
+
 </div>
+
+<script>
+/* ══ Particle nebula background ══ */
+(function() {
+  const canvas = document.getElementById('bg');
+  const ctx    = canvas.getContext('2d');
+  let W, H, particles = [], animId;
+
+  const GOLD   = [201, 168, 76];
+  const WHITE  = [255, 255, 255];
+  const COUNT  = 120;
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  function createParticle() {
+    const isGold = Math.random() < 0.4;
+    const [r,g,b] = isGold ? GOLD : WHITE;
+    return {
+      x:    rand(0, W),
+      y:    rand(0, H),
+      vx:   rand(-0.15, 0.15),
+      vy:   rand(-0.1, -0.3),
+      size: rand(0.5, isGold ? 2 : 1.2),
+      alpha:rand(0.15, 0.7),
+      r, g, b,
+      flicker: rand(0.005, 0.02),
+      phase:   rand(0, Math.PI * 2),
+    };
+  }
+
+  function init() {
+    particles = Array.from({ length: COUNT }, createParticle);
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    /* deep space gradient */
+    const grad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H) * 0.65);
+    grad.addColorStop(0,   'rgba(12,8,24,0.4)');
+    grad.addColorStop(0.5, 'rgba(4,4,10,0.3)');
+    grad.addColorStop(1,   'rgba(2,2,6,0.5)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    const now = performance.now() * 0.001;
+
+    for (const p of particles) {
+      p.phase += p.flicker;
+      const a = p.alpha * (0.6 + 0.4 * Math.sin(p.phase));
+
+      /* glow for larger gold particles */
+      if (p.size > 1.3 && p.r === GOLD[0]) {
+        const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 5);
+        grd.addColorStop(0, `rgba(${p.r},${p.g},${p.b},${a * 0.4})`);
+        grd.addColorStop(1, `rgba(${p.r},${p.g},${p.b},0)`);
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.fillStyle = `rgba(${p.r},${p.g},${p.b},${a})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+
+      p.x += p.vx;
+      p.y += p.vy;
+
+      if (p.y < -5)  p.y = H + 5;
+      if (p.x < -5)  p.x = W + 5;
+      if (p.x > W+5) p.x = -5;
+    }
+
+    /* subtle connecting lines between nearby gold particles */
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const a = particles[i], b = particles[j];
+        if (a.r !== GOLD[0] || b.r !== GOLD[0]) continue;
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 90) {
+          ctx.strokeStyle = `rgba(201,168,76,${0.06 * (1 - dist/90)})`;
+          ctx.lineWidth = 0.5;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    animId = requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('resize', () => { resize(); });
+  resize();
+  init();
+  draw();
+})();
+</script>
 
 </body>
 </html>
