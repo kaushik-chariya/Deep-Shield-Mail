@@ -1,583 +1,247 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Deep Shield Mail · Scan Email</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Grotesk:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<style>
-:root {
-  --gold:       #c9a84c;
-  --gold-light: #f0d080;
-  --gold-dim:   rgba(201,168,76,0.13);
-  --gold-glow:  rgba(201,168,76,0.3);
-  --bg:         #04040a;
-  --ink:        #f2efe8;
-  --ink2:       #9a9488;
-  --ink3:       #4a4840;
-  --glass:      rgba(8,8,16,0.78);
-  --border:     rgba(201,168,76,0.2);
-  --red:        #e05050;
-  --green:      #4ecb71;
-}
+{% extends "base.html" %}
+{% block title %}Manual Demo — Deep Shield Mail{% endblock %}
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { width: 100%; min-height: 100%; background: var(--bg); font-family: 'Space Grotesk', sans-serif; color: var(--ink); }
+{% block content %}
 
-canvas#bg { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; }
-.noise { position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: 0.04;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 200px 200px; }
+<!-- NAVBAR -->
+<nav class="navbar">
+  <a href="{{ url_for('index') }}" class="nav-brand">
+    <div class="nav-logo-wrap" data-logo="shield-sm"></div>
+    <span class="nav-brand-name">Deep Shield Mail</span>
+  </a>
+  <ul class="nav-links">
+    <li>
+      <span style="font-size:0.75rem; font-weight:700; padding:4px 10px; background:var(--blue-glow-soft); border:1px solid var(--border-glow); border-radius:20px; color:var(--blue-light); letter-spacing:0.05em;">
+        🤖 v2.1
+      </span>
+    </li>
+    <li><a href="{{ url_for('index') }}">🏠 Home</a></li>
+    <li><a href="{{ url_for('manual_email') }}" class="active">⚡️ Manual Demo</a></li>
+    <li>
+      <a href="{{ url_for('auth_gmail') }}" class="btn btn-gmail">
+        <img src="https://ssl.gstatic.com/ui/v1/icons/mail/rfr/gmail.ico" width="18" height="18" style="vertical-align:middle; margin-right:6px;">
+        Connect Gmail
+      </a>
+    </li>
+  </ul>
+</nav>
 
-.page {
-  position: relative; z-index: 10;
-  min-height: 100vh;
-  display: flex; flex-direction: column; align-items: center;
-  padding: 2.5rem 1.5rem 4rem;
-}
+<!-- <main style="max-width:1500px; margin:0 auto; padding:3rem 2rem;"> -->
+<main style="max-width:1500px; margin:0 auto; padding:5rem 2rem; min-height:100vh;">
 
-/* ── Top nav ── */
-.topbar {
-  width: 100%; max-width: 760px;
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 2.8rem;
-  opacity: 0; animation: fadeDown 0.7s cubic-bezier(0.22,1,0.36,1) 0.1s forwards;
-}
-
-@keyframes fadeDown {
-  from { opacity: 0; transform: translateY(-16px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-.nav-logo {
-  display: flex; align-items: center; gap: 10px;
-  text-decoration: none;
-}
-
-.nav-shield {
-  width: 30px; height: 34px;
-  filter: drop-shadow(0 0 8px rgba(201,168,76,0.35));
-}
-
-.nav-name {
-  font-family: 'Playfair Display', serif;
-  font-size: 1rem; font-weight: 400;
-  color: var(--ink); letter-spacing: 0.04em;
-}
-.nav-name b {
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--gold-light), var(--gold));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.nav-back {
-  display: flex; align-items: center; gap: 7px;
-  text-decoration: none;
-  font-family: 'Space Mono', monospace;
-  font-size: 0.62rem; letter-spacing: 0.12em;
-  color: var(--ink3); text-transform: uppercase;
-  transition: color 0.2s;
-}
-.nav-back:hover { color: var(--gold); }
-.nav-back::before { content: '←'; font-size: 0.9rem; }
-
-/* ── Page heading ── */
-.page-head {
-  text-align: center;
-  margin-bottom: 2.2rem;
-  opacity: 0; animation: fadeUp 0.8s cubic-bezier(0.22,1,0.36,1) 0.2s forwards;
-}
-
-.page-eyebrow {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.58rem; letter-spacing: 0.28em;
-  color: var(--gold); text-transform: uppercase;
-  margin-bottom: 0.7rem;
-}
-
-.page-title {
-  font-family: 'Playfair Display', serif;
-  font-size: clamp(1.8rem, 3vw, 2.6rem);
-  font-weight: 700; line-height: 1.1;
-  color: var(--ink);
-}
-
-.page-title em {
-  font-style: italic;
-  background: linear-gradient(135deg, var(--gold-light), var(--gold));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* ── Main card ── */
-.main-card {
-  width: 100%; max-width: 760px;
-  background: var(--glass);
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  padding: 2.4rem 2.4rem 2rem;
-  backdrop-filter: blur(32px);
-  -webkit-backdrop-filter: blur(32px);
-  box-shadow: 0 40px 100px rgba(0,0,0,0.65), 0 0 80px rgba(201,168,76,0.04);
-  position: relative; overflow: hidden;
-  opacity: 0; animation: fadeUp 0.9s cubic-bezier(0.22,1,0.36,1) 0.35s forwards;
-}
-
-.main-card::before {
-  content: '';
-  position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(201,168,76,0.55), transparent);
-}
-.main-card::after {
-  content: '';
-  position: absolute; top: 16px; right: 16px;
-  width: 28px; height: 28px;
-  border-top: 1px solid var(--border); border-right: 1px solid var(--border);
-  border-radius: 0 8px 0 0; opacity: 0.5;
-}
-
-.corner-bl {
-  position: absolute; bottom: 16px; left: 16px;
-  width: 28px; height: 28px;
-  border-bottom: 1px solid var(--border); border-left: 1px solid var(--border);
-  border-radius: 0 0 0 8px; opacity: 0.5;
-}
-
-/* ── Textarea ── */
-.field-label {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.6rem; letter-spacing: 0.2em;
-  color: var(--gold); text-transform: uppercase;
-  margin-bottom: 0.8rem;
-  display: flex; align-items: center; gap: 8px;
-}
-.field-label::after {
-  content: ''; flex: 1; height: 1px;
-  background: linear-gradient(90deg, var(--border), transparent);
-}
-
-.email-textarea {
-  width: 100%; height: 240px;
-  background: rgba(0,0,0,0.35);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 14px;
-  padding: 1.1rem 1.2rem;
-  font-family: 'Space Mono', monospace;
-  font-size: 0.75rem; line-height: 1.7;
-  color: var(--ink2);
-  resize: vertical;
-  outline: none;
-  transition: border-color 0.2s, background 0.2s;
-}
-.email-textarea::placeholder { color: var(--ink3); }
-.email-textarea:focus {
-  border-color: rgba(201,168,76,0.3);
-  background: rgba(0,0,0,0.5);
-  color: var(--ink);
-}
-
-/* ── Scan button ── */
-.scan-btn {
-  display: flex; align-items: center; justify-content: center; gap: 12px;
-  width: 100%; padding: 1.1rem;
-  margin-top: 1.1rem;
-  border-radius: 14px;
-  background: linear-gradient(135deg, rgba(201,168,76,0.18), rgba(201,168,76,0.08));
-  border: 1px solid rgba(201,168,76,0.42);
-  color: var(--ink);
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 0.92rem; font-weight: 600;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
-  box-shadow: 0 4px 24px rgba(201,168,76,0.1), inset 0 1px 0 rgba(201,168,76,0.2);
-  position: relative; overflow: hidden;
-}
-.scan-btn::before {
-  content: ''; position: absolute;
-  top: 0; left: -120%; width: 50%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
-  transition: left 0.5s;
-}
-.scan-btn:hover::before { left: 160%; }
-.scan-btn:hover {
-  background: linear-gradient(135deg, rgba(201,168,76,0.26), rgba(201,168,76,0.14));
-  border-color: rgba(201,168,76,0.65);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 36px rgba(201,168,76,0.2), inset 0 1px 0 rgba(201,168,76,0.25);
-}
-.scan-btn:active { transform: scale(0.99); }
-.scan-btn:disabled { opacity: 0.5; pointer-events: none; }
-
-.scan-btn .spinner {
-  width: 16px; height: 16px;
-  border: 2px solid rgba(201,168,76,0.3);
-  border-top-color: var(--gold);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  display: none;
-}
-.scan-btn.loading .spinner { display: block; }
-.scan-btn.loading .btn-text-label { display: none; }
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ── Result panel ── */
-.result-panel {
-  margin-top: 1.6rem;
-  display: none;
-}
-.result-panel.visible { display: block; }
-
-.result-divider {
-  display: flex; align-items: center; gap: 12px;
-  margin-bottom: 1.4rem;
-}
-.result-divider span {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.58rem; letter-spacing: 0.18em;
-  color: var(--ink3); text-transform: uppercase; flex-shrink: 0;
-}
-.result-divider::before, .result-divider::after {
-  content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.06);
-}
-
-.result-box {
-  border-radius: 16px;
-  padding: 1.6rem;
-  border: 1px solid;
-  position: relative; overflow: hidden;
-  animation: resultIn 0.5s cubic-bezier(0.22,1,0.36,1);
-}
-
-@keyframes resultIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-.result-box.spam {
-  background: rgba(224,80,80,0.07);
-  border-color: rgba(224,80,80,0.3);
-}
-.result-box.ham {
-  background: rgba(78,203,113,0.07);
-  border-color: rgba(78,203,113,0.3);
-}
-
-.result-box::before {
-  content: '';
-  position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
-}
-.result-box.spam::before { background: linear-gradient(90deg, transparent, rgba(224,80,80,0.5), transparent); }
-.result-box.ham::before  { background: linear-gradient(90deg, transparent, rgba(78,203,113,0.5), transparent); }
-
-.result-header {
-  display: flex; align-items: center; gap: 14px;
-  margin-bottom: 1.2rem;
-}
-
-.result-verdict-icon {
-  width: 48px; height: 48px; border-radius: 12px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 22px; flex-shrink: 0;
-}
-.spam .result-verdict-icon { background: rgba(224,80,80,0.15); border: 1px solid rgba(224,80,80,0.3); }
-.ham  .result-verdict-icon { background: rgba(78,203,113,0.15); border: 1px solid rgba(78,203,113,0.3); }
-
-.result-verdict-text {}
-.result-verdict-label {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.58rem; letter-spacing: 0.2em;
-  text-transform: uppercase; margin-bottom: 3px;
-}
-.spam .result-verdict-label { color: rgba(224,80,80,0.7); }
-.ham  .result-verdict-label { color: rgba(78,203,113,0.7); }
-
-.result-verdict-title {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.5rem; font-weight: 700;
-}
-.spam .result-verdict-title { color: var(--red); }
-.ham  .result-verdict-title { color: var(--green); }
-
-/* ── Probability bar ── */
-.prob-row {
-  margin-bottom: 1rem;
-}
-.prob-label {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 6px;
-}
-.prob-label span {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.6rem; letter-spacing: 0.1em; color: var(--ink3);
-}
-.prob-label strong {
-  font-size: 0.75rem; font-weight: 700;
-}
-.spam .prob-label strong { color: var(--red); }
-.ham  .prob-label strong { color: var(--green); }
-
-.prob-track {
-  height: 6px; border-radius: 3px;
-  background: rgba(255,255,255,0.06);
-  overflow: hidden;
-}
-.prob-fill {
-  height: 100%; border-radius: 3px;
-  transition: width 1s cubic-bezier(0.22,1,0.36,1);
-}
-.spam .prob-fill { background: linear-gradient(90deg, rgba(224,80,80,0.5), var(--red)); }
-.ham  .prob-fill { background: linear-gradient(90deg, rgba(78,203,113,0.5), var(--green)); }
-
-/* ── Meta chips ── */
-.meta-chips {
-  display: flex; flex-wrap: wrap; gap: 7px;
-}
-.chip {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.56rem; letter-spacing: 0.08em;
-  padding: 4px 10px; border-radius: 6px;
-  border: 1px solid; text-transform: uppercase;
-}
-.spam .chip { background: rgba(224,80,80,0.08); border-color: rgba(224,80,80,0.2); color: rgba(224,80,80,0.8); }
-.ham  .chip { background: rgba(78,203,113,0.08); border-color: rgba(78,203,113,0.2); color: rgba(78,203,113,0.8); }
-
-/* ── Error ── */
-.error-box {
-  display: none; margin-top: 1rem;
-  padding: 0.8rem 1rem;
-  border-radius: 10px;
-  background: rgba(224,80,80,0.08);
-  border: 1px solid rgba(224,80,80,0.25);
-  font-family: 'Space Mono', monospace;
-  font-size: 0.65rem; color: var(--red);
-}
-.error-box.visible { display: block; }
-
-/* ── Bottom bar ── */
-.bottom-strip {
-  width: 100%; max-width: 760px;
-  margin-top: 1.8rem;
-  display: flex; align-items: center; justify-content: space-between;
-  opacity: 0; animation: fadeUp 0.7s cubic-bezier(0.22,1,0.36,1) 0.7s forwards;
-}
-.strip-text {
-  font-family: 'Space Mono', monospace;
-  font-size: 0.56rem; letter-spacing: 0.12em; color: var(--ink3);
-}
-.dot-live {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--green);
-  box-shadow: 0 0 7px rgba(78,203,113,0.5);
-  animation: blink 2.5s ease-in-out infinite;
-  display: inline-block; margin-right: 6px; vertical-align: middle;
-}
-@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
-</style>
-</head>
-<body>
-
-<div class="noise"></div>
-<canvas id="bg"></canvas>
-
-<div class="page">
-
-  <!-- Topbar -->
-  <nav class="topbar">
-    <a href="/" class="nav-logo">
-      <svg class="nav-shield" viewBox="0 0 30 34" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="ng" x1="0" y1="0" x2="30" y2="34" gradientUnits="userSpaceOnUse">
-            <stop offset="0%"  stop-color="#f0d080"/>
-            <stop offset="100%" stop-color="#9a7030"/>
-          </linearGradient>
-          <linearGradient id="ng2" x1="0" y1="0" x2="30" y2="34" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="#f0d080" stop-opacity="0.18"/>
-            <stop offset="100%" stop-color="#c9a84c" stop-opacity="0.04"/>
-          </linearGradient>
-        </defs>
-        <path d="M15 1L2 6.5V19C2 27 8 32 15 34C22 32 28 27 28 19V6.5L15 1Z" fill="url(#ng2)" stroke="url(#ng)" stroke-width="1"/>
-        <rect x="8" y="12" width="14" height="10" rx="1.5" fill="none" stroke="url(#ng)" stroke-width="1"/>
-        <path d="M8 13.5L15 19L22 13.5" stroke="url(#ng)" stroke-width="1" stroke-linecap="round"/>
-      </svg>
-      <span class="nav-name">Deep <b>Shield</b></span>
-    </a>
-    <a href="/" class="nav-back">Back to login</a>
-  </nav>
-
-  <!-- Heading -->
-  <div class="page-head">
-    <div class="page-eyebrow">Manual Scan</div>
-    <h1 class="page-title">Paste your email,<br>get the <em>verdict</em></h1>
+  <!-- Header -->
+  <div style="text-align:center; margin-bottom:2.5rem;">
+    <h1 style="font-family:'Poppins',sans-serif; font-size:2rem; font-weight:800; margin-bottom:0.5rem;">
+      Manual Email <span style="background:linear-gradient(135deg,#38BDF8,#2563EB); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">Analysis</span>
+    </h1>
+    <p class="text-secondary">Paste an email below to analyze if it's Safe or Spam</p>
   </div>
 
-  <!-- Main card -->
-  <div class="main-card">
-    <div class="corner-bl"></div>
+  <div style="display:grid; grid-template-columns:1fr 340px; gap:1.5rem; align-items:start;">
 
-    <div class="field-label">Email Content</div>
-    <textarea
-      class="email-textarea"
-      id="emailInput"
-      placeholder="Paste full email here — headers, subject, body...&#10;&#10;From: sender@example.com&#10;Subject: You've won!&#10;&#10;Congratulations! Click here to claim..."
-    ></textarea>
+    <!-- Left: Input -->
+    <div class="glass-card" style="padding:1.5rem;">
 
-    <button class="scan-btn" id="scanBtn" onclick="scanEmail()">
-      <div class="spinner"></div>
-      <span class="btn-text-label">⚡ Analyse Email</span>
-    </button>
+      <!-- Char counter -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+        <label style="font-size:0.975rem; font-weight:600; color:var(--text-secondary);">Email Content</label>
+        <span id="charCount" style="font-size:0.75rem; color:var(--text-muted);">0 / 5000</span>
+      </div>
 
-    <div class="error-box" id="errorBox"></div>
+      <textarea
+  id="emailInput"
+  class="input-field"
+  rows="20"
+  maxlength="5000"
+  placeholder="Paste your email content here...&#10;&#10;From: sender@example.com&#10;Subject: Email Subject&#10;&#10;Email body..."
+  style="min-height:420px; resize:vertical; font-size:1rem;"
+></textarea>
 
-    <!-- Result -->
-    <div class="result-panel" id="resultPanel">
-      <div class="result-divider"><span>Analysis Result</span></div>
-      <div class="result-box" id="resultBox">
-        <div class="result-header">
-          <div class="result-verdict-icon" id="verdictIcon"></div>
-          <div class="result-verdict-text">
-            <div class="result-verdict-label" id="verdictLabel"></div>
-            <div class="result-verdict-title" id="verdictTitle"></div>
+      <!-- Buttons row -->
+      <div style="display:flex; gap:10px; margin-top:1rem; flex-wrap:wrap;">
+        <button id="analyzeBtn" class="btn btn-primary" onclick="analyzeEmail()">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+          Analyze Email
+          <div class="loading-spinner" id="spinner"></div>
+        </button>
+        <button class="btn btn-success" onclick="loadSafeDemo()">✅ Safe Demo</button>
+        <button class="btn btn-danger"  onclick="loadSpamDemo()">🚫 Spam Demo</button>
+        <button class="btn btn-secondary" onclick="clearInput()">🗑️ Clear</button>
+      </div>
+    </div>
+
+    <!-- Right: Result -->
+    <div>
+      <!-- Result panel -->
+      <div id="resultPanel" class="result-panel">
+        <div id="resultHeader" style="display:flex; align-items:center; gap:12px; margin-bottom:1rem;">
+          <div id="resultIcon" style="font-size:1.75rem;"></div>
+          <div>
+            <div id="resultLabel" style="font-family:'Poppins',sans-serif; font-weight:800; font-size:1rem;"></div>
+            <div id="resultDesc"  style="font-size:0.78rem; color:var(--text-secondary); margin-top:2px;"></div>
           </div>
         </div>
-        <div class="prob-row">
-          <div class="prob-label">
-            <span>Confidence Score</span>
-            <strong id="probText">0%</strong>
+
+        <div style="margin-bottom:1rem;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+            <span style="font-size:0.75rem; color:var(--text-muted);">Confidence Score</span>
+            <span id="confidenceText" style="font-size:0.75rem; font-weight:700;"></span>
           </div>
-          <div class="prob-track">
-            <div class="prob-fill" id="probFill" style="width:0%"></div>
+          <div class="progress-bar">
+            <div id="confidenceBar" class="progress-fill" style="width:0%;"></div>
           </div>
         </div>
-        <div class="meta-chips" id="metaChips"></div>
+
+        <div id="reasonsBlock" style="display:none;">
+          <div class="section-title">Threat Reasons</div>
+          <ul id="reasonsList" style="list-style:none; display:flex; flex-direction:column; gap:6px; font-size:0.8rem; color:var(--text-secondary);"></ul>
+        </div>
+      </div>
+
+      <!-- Tips card -->
+      <div class="glass-card" style="margin-top:1rem; padding:1.25rem;">
+        <div class="section-title">Tips</div>
+        <ul style="list-style:none; display:flex; flex-direction:column; gap:6px; font-size:0.8rem; color:var(--text-secondary);">
+          <li>📋 Paste full email including headers</li>
+          <li>🔍 Include From, Subject & body</li>
+          <li>🤖 AI analyzes content patterns</li>
+          <li>⚡ Results appear instantly</li>
+        </ul>
       </div>
     </div>
 
   </div>
+</main>
 
-  <!-- Bottom strip -->
-  <div class="bottom-strip">
-    <span class="strip-text"><span class="dot-live"></span>Model active · No data stored</span>
-    <span class="strip-text">Deep Shield Mail · v2.0</span>
-  </div>
+{% endblock %}
 
-</div>
-
+{% block scripts %}
 <script>
-async function scanEmail() {
-  const input  = document.getElementById('emailInput');
-  const btn    = document.getElementById('scanBtn');
-  const errBox = document.getElementById('errorBox');
-  const panel  = document.getElementById('resultPanel');
-  const raw    = input.value.trim();
+const SAFE_DEMO = `From: hr@company.com
+To: you@gmail.com
+Subject: Interview Invitation - Software Developer
 
-  errBox.classList.remove('visible');
-  panel.classList.remove('visible');
+Hi,
 
-  if (!raw) {
-    errBox.textContent = 'Please paste an email first.';
-    errBox.classList.add('visible');
-    return;
-  }
+We are excited to invite you for an interview for the Software Developer position at our company. Please let us know your availability for the next round.
 
-  btn.classList.add('loading');
-  btn.disabled = true;
+We look forward to speaking with you.
+
+Best regards,
+HR Team
+TechCorp Solutions`;
+
+const SPAM_DEMO = `From: lottery@win-cash-now.com
+To: you@gmail.com
+Subject: CONGRATULATIONS! You Won $10,000 - CLAIM NOW!!!
+
+CONGRATULATIONS DEAR WINNER!!!
+
+You have been SELECTED to receive $10,000 CASH PRIZE from our INTERNATIONAL LOTTERY!
+
+CLICK HERE NOW: http://claim-prize-now.suspicious.com/?id=WIN1234
+
+ACT FAST - Limited Time Offer expires TODAY!
+Send your personal details to claim your REWARD!!!
+
+Lottery Board International`;
+
+const emailInput = document.getElementById('emailInput');
+const charCount  = document.getElementById('charCount');
+
+emailInput.addEventListener('input', () => {
+  charCount.textContent = `${emailInput.value.length} / 5000`;
+});
+
+function loadSafeDemo() {
+  emailInput.value = SAFE_DEMO;
+  charCount.textContent = `${SAFE_DEMO.length} / 5000`;
+}
+function loadSpamDemo() {
+  emailInput.value = SPAM_DEMO;
+  charCount.textContent = `${SPAM_DEMO.length} / 5000`;
+}
+
+
+function clearInput() {
+  emailInput.value = '';
+  charCount.textContent = '0 / 5000';
+  const panel = document.getElementById('resultPanel');
+  panel.className = 'result-panel';
+}
+
+async function analyzeEmail() {
+  const raw = emailInput.value.trim();
+  if (!raw) { alert('Please enter email content.'); return; }
+
+  const btn     = document.getElementById('analyzeBtn');
+  const spinner = document.getElementById('spinner');
+  btn.disabled  = true;
+  spinner.style.display = 'block';
 
   try {
     const res  = await fetch('/api/predict/manual', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ raw }),
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ raw })
     });
     const data = await res.json();
-
-    if (data.error) throw new Error(data.error);
-
-    const isSpam = data.prediction === 1;
-    const prob   = Math.round((data.probability || 0) * 100);
-    const box    = document.getElementById('resultBox');
-
-    box.className      = 'result-box ' + (isSpam ? 'spam' : 'ham');
-    document.getElementById('verdictIcon').textContent  = isSpam ? '🚨' : '✅';
-    document.getElementById('verdictLabel').textContent = isSpam ? 'Threat Detected' : 'Clean Email';
-    document.getElementById('verdictTitle').textContent = isSpam ? 'SPAM' : 'HAM';
-    document.getElementById('probText').textContent     = prob + '%';
-
-    setTimeout(() => {
-      document.getElementById('probFill').style.width = prob + '%';
-    }, 100);
-
-    const chips = [
-      `Confidence: ${prob}%`,
-      isSpam ? 'Flagged' : 'Cleared',
-      data.label || (isSpam ? 'Spam' : 'Ham'),
-    ];
-    document.getElementById('metaChips').innerHTML =
-      chips.map(c => `<span class="chip">${c}</span>`).join('');
-
-    panel.classList.add('visible');
-  } catch (err) {
-    errBox.textContent = '⚠ ' + (err.message || 'Prediction failed. Try again.');
-    errBox.classList.add('visible');
+    if (data.error) { alert('Error: ' + data.error); return; }
+    showResult(data);
+  } catch(e) {
+    alert('Network error. Please try again.');
   } finally {
-    btn.classList.remove('loading');
     btn.disabled = false;
+    spinner.style.display = 'none';
   }
 }
 
-/* allow Ctrl+Enter to submit */
-document.getElementById('emailInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) scanEmail();
-});
+function showResult(data) {
+  const panel        = document.getElementById('resultPanel');
+  const icon         = document.getElementById('resultIcon');
+  const label        = document.getElementById('resultLabel');
+  const desc         = document.getElementById('resultDesc');
+  const confText     = document.getElementById('confidenceText');
+  const confBar      = document.getElementById('confidenceBar');
+  const reasonsBlock = document.getElementById('reasonsBlock');
+  const reasonsList  = document.getElementById('reasonsList');
 
-/* ══ Particle background (same as index) ══ */
-(function() {
-  const canvas = document.getElementById('bg');
-  const ctx    = canvas.getContext('2d');
-  let W, H, particles = [];
-  const GOLD = [201,168,76], WHITE = [255,255,255];
+  const isSpam  = data.prediction === 1;
+  const conf    = Math.round((data.probability || 0) * 100);
 
-  function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
-  function rand(a,b) { return a + Math.random()*(b-a); }
+  panel.className = `result-panel show ${isSpam ? 'spam' : 'safe'}`;
 
-  function create() {
-    const g = Math.random()<0.4;
-    const [r,g2,b] = g ? GOLD : WHITE;
-    return { x:rand(0,W), y:rand(0,H), vx:rand(-0.12,0.12), vy:rand(-0.08,-0.25),
-             size:rand(0.5,g?1.8:1), alpha:rand(0.1,0.6), r, g:g2, b,
-             flicker:rand(0.004,0.018), phase:rand(0,Math.PI*2) };
+  if (isSpam) {
+    icon.textContent  = '⚠️';
+    label.textContent = 'SPAM / PHISHING';
+    label.style.color = 'var(--red)';
+    desc.textContent  = 'This email looks dangerous!';
+    confBar.className = 'progress-fill red';
+
+    const reasons = [
+      '• Contains suspicious links',
+      '• Uses urgent and misleading language',
+      '• Sender is not in your contact list',
+      '• Possible phishing content detected'
+    ];
+    reasonsList.innerHTML = reasons.map(r => `<li>${r}</li>`).join('');
+    reasonsBlock.style.display = 'block';
+  } else {
+    icon.textContent  = '✅';
+    label.textContent = 'SAFE EMAIL';
+    label.style.color = 'var(--green)';
+    desc.textContent  = 'This email is safe to read.';
+    confBar.className = 'progress-fill green';
+    reasonsBlock.style.display = 'none';
   }
 
-  function draw() {
-    ctx.clearRect(0,0,W,H);
-    const gr = ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*0.65);
-    gr.addColorStop(0,'rgba(12,8,24,0.4)'); gr.addColorStop(1,'rgba(2,2,6,0.5)');
-    ctx.fillStyle=gr; ctx.fillRect(0,0,W,H);
-    for (const p of particles) {
-      p.phase += p.flicker;
-      const a = p.alpha*(0.6+0.4*Math.sin(p.phase));
-      ctx.fillStyle=`rgba(${p.r},${p.g},${p.b},${a})`;
-      ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill();
-      p.x+=p.vx; p.y+=p.vy;
-      if(p.y<-5) p.y=H+5; if(p.x<-5) p.x=W+5; if(p.x>W+5) p.x=-5;
-    }
-    requestAnimationFrame(draw);
-  }
+  confText.textContent = conf + '%';
+  confText.style.color = isSpam ? 'var(--red)' : 'var(--green)';
 
-  window.addEventListener('resize', resize);
-  resize();
-  particles = Array.from({length:80}, create);
-  draw();
-})();
+  // animate bar
+  setTimeout(() => { confBar.style.width = conf + '%'; }, 50);
+}
 </script>
-
-</body>
-</html>
+{% endblock %}

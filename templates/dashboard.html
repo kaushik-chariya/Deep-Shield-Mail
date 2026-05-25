@@ -1,637 +1,391 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Inbox — Deep Shield Mail</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<style>
-:root{
-  --gold:#D4AF37;--gold-bright:#FFD700;--gold-dim:#8B7316;
-  --gold-bg:rgba(212,175,55,0.08);--gold-border:rgba(212,175,55,0.18);--gold-glow:rgba(212,175,55,0.28);
-  --bg-void:#03030A;--bg-deep:#060612;--bg-card:rgba(8,12,30,0.88);--bg-card2:rgba(6,6,18,0.96);
-  --navy:#080C1E;--navy2:#0D1530;
-  --green:#00E87A;--green-bg:rgba(0,232,122,0.07);--green-border:rgba(0,232,122,0.22);
-  --red:#E74C3C;--red-bg:rgba(231,76,60,0.07);--red-border:rgba(231,76,60,0.22);
-  --blue:#2E86C1;--orange:#FF6B35;--purple:#9B59B6;
-  --glass:rgba(255,255,255,0.03);--glass2:rgba(255,255,255,0.06);
-  --border-dim:rgba(255,255,255,0.06);
-  --text-primary:#F0EDD6;--text-muted:#8A8A9A;--text-dim:#4A4A5A;
-  --sidebar:268px;--detail:308px;
-  --mono:'Space Mono',monospace;--display:'Orbitron',monospace;--font:'Rajdhani',sans-serif;
-}
-*{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%;overflow:hidden}
-body{background:var(--bg-void);color:var(--text-primary);font-family:var(--font);cursor:none}
+{% extends "base.html" %}
+{% block title %}Dashboard — Deep Shield Mail{% endblock %}
 
-/* CURSOR */
-#cursor{position:fixed;width:8px;height:8px;background:var(--gold-bright);border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:width .15s,height .15s}
-#cursor-ring{position:fixed;width:32px;height:32px;border:1px solid rgba(212,175,55,0.45);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:all .08s ease}
+{% block head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+{% endblock %}
 
-/* CANVAS + GRID */
-#particle-canvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none}
-.grid-bg{
-  position:fixed;inset:0;z-index:1;pointer-events:none;
-  background-image:linear-gradient(rgba(212,175,55,0.022) 1px,transparent 1px),
-                   linear-gradient(90deg,rgba(212,175,55,0.022) 1px,transparent 1px);
-  background-size:60px 60px;
-}
+{% block content %}
 
-/* SHELL */
-.shell{display:flex;height:100vh;position:relative;z-index:2}
-
-/* ═══════════════════════════ SIDEBAR ═══════════════════════════ */
-.sidebar{
-  width:var(--sidebar);flex-shrink:0;
-  background:var(--bg-card2);
-  border-right:1px solid var(--gold-border);
-  display:flex;flex-direction:column;overflow:hidden;position:relative;
-}
-.sidebar::before{
-  content:'';position:absolute;inset:0;pointer-events:none;
-  background-image:radial-gradient(circle,rgba(212,175,55,0.035) 1px,transparent 1px);
-  background-size:22px 22px;
-}
-.sidebar::after{
-  content:'';position:absolute;top:0;left:0;right:0;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(212,175,55,0.55),transparent);
-}
-
-/* Brand */
-.sb-brand{padding:1.3rem 1.2rem 1rem;border-bottom:1px solid var(--border-dim);position:relative;z-index:1}
-.sb-brand-row{display:flex;align-items:center;gap:10px;margin-bottom:3px}
-.sb-icon{
-  width:36px;height:36px;border-radius:9px;flex-shrink:0;
-  background:var(--gold-bg);border:1px solid var(--gold-border);
-  display:flex;align-items:center;justify-content:center;font-size:16px;
-  box-shadow:0 0 14px var(--gold-glow);
-}
-.sb-brand-name{
-  font-family:var(--display);font-size:.88rem;font-weight:700;
-  background:linear-gradient(135deg,var(--gold-bright),var(--gold),#6B5010);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:2px;
-}
-.sb-tagline{
-  font-family:var(--mono);font-size:.52rem;letter-spacing:.2em;
-  color:var(--text-dim);text-transform:uppercase;padding-left:46px;
-}
-
-/* User */
-.sb-user{padding:.85rem 1.2rem;border-bottom:1px solid var(--border-dim);position:relative;z-index:1}
-.sb-avatar{
-  width:34px;height:34px;border-radius:50%;
-  background:var(--gold-bg);border:1px solid var(--gold-border);
-  display:flex;align-items:center;justify-content:center;
-  font-family:var(--display);font-size:.75rem;font-weight:700;color:var(--gold);
-  margin-bottom:7px;box-shadow:0 0 10px var(--gold-glow);
-}
-.sb-email{
-  font-family:var(--mono);font-size:.6rem;color:var(--text-muted);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:5px;
-}
-.sb-provider{
-  display:inline-flex;align-items:center;gap:4px;
-  padding:2px 8px;border-radius:4px;
-  font-family:var(--mono);font-size:.52rem;
-  text-transform:uppercase;letter-spacing:.12em;
-  background:var(--gold-bg);color:var(--gold);border:1px solid var(--gold-border);
-}
-
-/* Stats */
-.sb-stats{
-  padding:.85rem 1.2rem;border-bottom:1px solid var(--border-dim);
-  display:grid;grid-template-columns:1fr 1fr;gap:7px;position:relative;z-index:1;
-}
-.sb-stat{
-  background:var(--glass);border:1px solid var(--border-dim);border-radius:10px;
-  padding:.6rem .7rem;transition:border-color .2s;
-}
-.sb-stat:hover{border-color:var(--gold-border)}
-.sb-stat-val{
-  font-family:var(--display);font-size:1.2rem;font-weight:700;
-  color:var(--text-primary);line-height:1;margin-bottom:3px;
-}
-.sb-stat-lbl{font-family:var(--mono);font-size:.5rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim)}
-.s-spam  .sb-stat-val{color:var(--red)}
-.s-clean .sb-stat-val{color:var(--green)}
-.s-pct   .sb-stat-val{color:var(--gold)}
-
-/* Ring */
-.sb-ring-wrap{
-  padding:.85rem 1.2rem;border-bottom:1px solid var(--border-dim);
-  display:flex;align-items:center;gap:14px;position:relative;z-index:1;
-}
-.ring-track{fill:none;stroke:rgba(255,255,255,0.06);stroke-width:4.5}
-.ring-fill{
-  fill:none;stroke:var(--red);stroke-width:4.5;stroke-linecap:round;
-  stroke-dasharray:157;stroke-dashoffset:157;
-  transform:rotate(-90deg);transform-origin:28px 28px;
-  transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1);
-}
-.ring-label{font-family:var(--mono);font-size:.55rem;text-transform:uppercase;letter-spacing:.12em;color:var(--text-dim);margin-bottom:3px}
-.ring-pct{font-family:var(--display);font-size:1.45rem;font-weight:700;color:var(--red)}
-
-/* Scan btn */
-.sb-actions{padding:1rem 1.2rem;display:flex;flex-direction:column;gap:8px;margin-top:auto;position:relative;z-index:1}
-.btn-scan{
-  width:100%;padding:.8rem;
-  background:linear-gradient(135deg,rgba(212,175,55,0.16),rgba(212,175,55,0.06));
-  border:1px solid rgba(212,175,55,0.42);border-radius:11px;
-  color:var(--text-primary);font-family:var(--display);font-size:.7rem;font-weight:700;
-  letter-spacing:2px;text-transform:uppercase;cursor:pointer;
-  transition:all .25s;display:flex;align-items:center;justify-content:center;gap:9px;
-  position:relative;overflow:hidden;box-shadow:0 0 22px rgba(212,175,55,0.07);
-}
-.btn-scan::before{
-  content:'';position:absolute;top:0;left:-100%;width:50%;height:100%;
-  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent);
-  transition:left .45s;
-}
-.btn-scan:hover::before{left:160%}
-.btn-scan:hover{
-  border-color:rgba(212,175,55,0.72);
-  background:linear-gradient(135deg,rgba(212,175,55,0.26),rgba(212,175,55,0.12));
-  transform:translateY(-1px);box-shadow:0 6px 26px rgba(212,175,55,0.18);
-}
-.btn-scan:active{transform:scale(.98)}
-.btn-scan:disabled{opacity:.35;cursor:not-allowed;transform:none}
-.btn-logout{
-  display:block;width:100%;padding:.62rem;
-  background:transparent;border:1px solid var(--border-dim);border-radius:10px;
-  color:var(--text-dim);font-family:var(--mono);font-size:.58rem;
-  text-align:center;text-decoration:none;letter-spacing:.08em;cursor:pointer;
-  transition:all .2s;text-transform:uppercase;
-}
-.btn-logout:hover{border-color:rgba(212,175,55,0.28);color:var(--text-muted)}
-
-/* ═══════════════════════════ MAIN ═══════════════════════════ */
-.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;background:var(--bg-deep)}
-
-.main-top{
-  padding:.8rem 1.3rem;border-bottom:1px solid var(--border-dim);
-  display:flex;align-items:center;justify-content:space-between;
-  background:rgba(6,6,18,0.92);backdrop-filter:blur(20px);flex-shrink:0;
-  position:relative;
-}
-.main-top::after{
-  content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
-  background:linear-gradient(90deg,transparent,var(--gold-border),transparent);
-}
-.main-top-title{font-family:var(--display);font-size:.88rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--text-primary)}
-.inbox-count{
-  font-family:var(--mono);font-size:.56rem;color:var(--text-dim);
-  background:var(--glass);padding:2px 9px;border-radius:20px;border:1px solid var(--border-dim);
-  margin-left:10px;
-}
-.main-top-right{display:flex;align-items:center;gap:6px}
-.filter-btn{
-  padding:4px 11px;border-radius:5px;border:1px solid var(--border-dim);
-  background:transparent;color:var(--text-dim);
-  font-family:var(--mono);font-size:.56rem;cursor:pointer;
-  transition:all .15s;text-transform:uppercase;letter-spacing:.08em;
-}
-.filter-btn:hover{border-color:var(--gold-border);color:var(--text-muted)}
-.filter-btn.active{background:var(--gold-bg);border-color:var(--gold-border);color:var(--gold)}
-.btn-page{
-  padding:4px 11px;border-radius:5px;border:1px solid var(--border-dim);
-  background:transparent;color:var(--text-dim);font-family:var(--mono);font-size:.58rem;
-  cursor:pointer;transition:all .15s;
-}
-.btn-page:hover{border-color:var(--gold-border);color:var(--text-muted)}
-.btn-page:disabled{opacity:.22;cursor:not-allowed}
-
-/* Email list */
-.email-list{flex:1;overflow-y:auto}
-.email-list::-webkit-scrollbar{width:3px}
-.email-list::-webkit-scrollbar-thumb{background:rgba(212,175,55,0.18);border-radius:2px}
-
-.state-msg{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  height:100%;gap:12px;color:var(--text-dim);font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;
-}
-.spinner{
-  width:28px;height:28px;border-radius:50%;
-  border:2px solid var(--border-dim);border-top-color:var(--gold);
-  animation:spin .7s linear infinite;
-}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-/* Email row */
-.erow{
-  display:flex;align-items:stretch;
-  border-bottom:1px solid rgba(255,255,255,0.025);
-  cursor:pointer;transition:background .12s;position:relative;
-  animation:rowIn .3s ease both;
-}
-@keyframes rowIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
-.erow:hover{background:rgba(212,175,55,0.025)}
-.erow.selected{background:rgba(212,175,55,0.045)}
-
-/* accent bar */
-.erow-bar{width:3px;flex-shrink:0;background:rgba(255,255,255,0.04);transition:background .3s}
-.erow.is-spam .erow-bar{background:var(--red)}
-.erow.is-ham  .erow-bar{background:var(--green)}
-.erow.scanning .erow-bar{animation:barpulse .65s ease-in-out infinite alternate}
-@keyframes barpulse{from{background:var(--border-dim)}to{background:var(--gold)}}
-
-.erow-body{flex:1;padding:.75rem 1rem;min-width:0}
-.erow-top{display:flex;align-items:center;gap:8px;margin-bottom:3px}
-.erow-from{font-family:var(--font);font-size:.82rem;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
-.erow-date{font-family:var(--mono);font-size:.57rem;color:var(--text-dim);flex-shrink:0}
-.erow-subject{font-size:.75rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px}
-.erow-snippet{font-family:var(--mono);font-size:.62rem;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-.erow-badge-col{flex-shrink:0;padding:0 .85rem;display:flex;align-items:center}
-.badge{
-  padding:2px 8px;border-radius:4px;
-  font-family:var(--mono);font-size:.54rem;
-  text-transform:uppercase;letter-spacing:.08em;font-weight:600;border:1px solid;
-}
-.badge-spam{background:var(--red-bg);color:var(--red);border-color:var(--red-border)}
-.badge-ham{background:var(--green-bg);color:var(--green);border-color:var(--green-border)}
-.badge-pending{background:var(--glass);color:var(--text-dim);border-color:var(--border-dim)}
-.badge-scanning{
-  background:var(--gold-bg);color:var(--gold);border-color:var(--gold-border);
-  animation:blink .9s ease-in-out infinite alternate;
-}
-@keyframes blink{from{opacity:.4}to{opacity:1}}
-
-/* ═══════════════════════════ DETAIL PANEL ═══════════════════════════ */
-.detail{
-  width:var(--detail);flex-shrink:0;
-  border-left:1px solid var(--gold-border);
-  background:var(--bg-card2);
-  display:flex;flex-direction:column;overflow:hidden;
-  transition:width .3s cubic-bezier(.4,0,.2,1),opacity .25s;
-  position:relative;
-}
-.detail::before{
-  content:'';position:absolute;inset:0;pointer-events:none;
-  background-image:radial-gradient(circle,rgba(212,175,55,0.03) 1px,transparent 1px);
-  background-size:20px 20px;
-}
-.detail::after{
-  content:'';position:absolute;top:0;left:0;right:0;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(212,175,55,0.5),transparent);
-}
-.detail.hidden{width:0;opacity:0;pointer-events:none;border-left:none}
-
-.detail-hdr{
-  padding:.85rem 1.1rem;border-bottom:1px solid var(--border-dim);
-  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
-  position:relative;z-index:1;
-}
-.detail-hdr-title{font-family:var(--display);font-size:.78rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;background:linear-gradient(135deg,var(--gold-bright),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.btn-close{
-  width:26px;height:26px;background:var(--glass);border:1px solid var(--border-dim);
-  border-radius:6px;color:var(--text-dim);font-size:.72rem;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;transition:all .15s;
-}
-.btn-close:hover{background:var(--glass2);color:var(--text-primary);border-color:var(--gold-border)}
-
-.detail-body{flex:1;overflow-y:auto;padding:1.1rem;display:flex;flex-direction:column;gap:.95rem;position:relative;z-index:1}
-.detail-body::-webkit-scrollbar{width:3px}
-.detail-body::-webkit-scrollbar-thumb{background:rgba(212,175,55,0.18);border-radius:2px}
-
-/* Result hero */
-.result-hero{
-  border-radius:14px;padding:1.2rem;text-align:center;
-  position:relative;overflow:hidden;border:1px solid;
-}
-.result-hero::before{
-  content:'';position:absolute;top:0;left:10%;right:10%;height:1px;
-  background:linear-gradient(90deg,transparent,currentColor,transparent);opacity:.35;
-}
-.result-hero.spam{background:var(--red-bg);border-color:var(--red-border)}
-.result-hero.ham{background:var(--green-bg);border-color:var(--green-border)}
-.hero-icon{font-size:2rem;margin-bottom:6px;display:block}
-.hero-verdict{font-family:var(--display);font-size:1rem;font-weight:700;letter-spacing:2px;margin-bottom:4px}
-.hero-verdict.spam{color:var(--red)}
-.hero-verdict.ham{color:var(--green)}
-.hero-conf{font-family:var(--mono);font-size:.58rem;color:var(--text-muted)}
-
-/* Prob bar */
-.prob-labels{display:flex;justify-content:space-between;margin-bottom:6px}
-.prob-lbl{font-family:var(--mono);font-size:.55rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim)}
-.prob-val{font-family:var(--display);font-size:.65rem;font-weight:700;color:var(--text-muted)}
-.prob-track{height:4px;background:rgba(255,255,255,0.04);border-radius:2px;overflow:hidden}
-.prob-fill{height:100%;border-radius:2px;transition:width .9s cubic-bezier(.4,0,.2,1)}
-.prob-fill.spam{background:linear-gradient(90deg,rgba(231,76,60,.45),var(--red))}
-.prob-fill.ham{background:linear-gradient(90deg,rgba(0,232,122,.45),var(--green))}
-
-/* Meta block */
-.meta-block{border:1px solid var(--border-dim);border-radius:11px;overflow:hidden;background:var(--glass)}
-.meta-row{display:flex;gap:8px;padding:.58rem .82rem;border-bottom:1px solid rgba(255,255,255,0.025)}
-.meta-row:last-child{border-bottom:none}
-.meta-key{font-family:var(--mono);font-size:.54rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);width:55px;flex-shrink:0;padding-top:1px}
-.meta-val{font-size:.76rem;color:var(--text-muted);word-break:break-word;line-height:1.45;font-family:var(--font)}
-
-/* Snippet */
-.snippet-block{background:var(--glass);border:1px solid var(--border-dim);border-radius:11px;padding:.82rem}
-.snippet-label{font-family:var(--mono);font-size:.54rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin-bottom:7px}
-.snippet-text{font-family:var(--mono);font-size:.65rem;color:var(--text-muted);line-height:1.7}
-
-/* Feature rows in detail */
-.feature-row{
-  display:flex;justify-content:space-between;align-items:center;
-  padding:.5rem .82rem;font-size:.76rem;
-}
-.feature-row span:first-child{color:var(--text-muted);font-family:var(--font)}
-.f-det{font-family:var(--mono);font-size:.57rem;letter-spacing:.05em}
-.f-red{color:var(--red)}.f-gold{color:var(--gold)}.f-green{color:var(--green)}
-</style>
-</head>
-<body>
-
-<div id="cursor"></div>
-<div id="cursor-ring"></div>
-<canvas id="particle-canvas"></canvas>
-<div class="grid-bg"></div>
-
-<div class="shell">
+<div class="dashboard-layout">
 
   <!-- ══ SIDEBAR ══ -->
   <aside class="sidebar">
-    <div class="sb-brand">
-      <div class="sb-brand-row">
-        <div class="sb-icon">🛡</div>
-        <div class="sb-brand-name">DEEP SHIELD</div>
-      </div>
-      <div class="sb-tagline">Mail Protection · AI</div>
-    </div>
+    <a href="{{ url_for('index') }}" class="sidebar-brand">
+      <div data-logo="shield-sm"></div>
+      <span class="nav-brand-name">Deep Shield Mail</span>
+    </a>
 
-    <div class="sb-user">
-      <div class="sb-avatar" id="sb-avatar">—</div>
-      <div class="sb-email" id="sb-email">{{ user_email }}</div>
-      <span class="sb-provider">⬡ {{ provider }}</span>
+    {% if user_email %}
+    <div style="padding:0.75rem 0.5rem; margin-bottom:0.75rem; border-bottom:1px solid var(--border-subtle);">
+      <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:3px;">Connected as</div>
+      <div style="font-size:0.8rem; color:var(--blue-light); font-weight:600; word-break:break-all;">{{ user_email }}</div>
     </div>
+    {% endif %}
 
-    <div class="sb-stats">
-      <div class="sb-stat">
-        <div class="sb-stat-val" id="s-total">—</div>
-        <div class="sb-stat-lbl">Total</div>
-      </div>
-      <div class="sb-stat s-spam">
-        <div class="sb-stat-val" id="s-spam">—</div>
-        <div class="sb-stat-lbl">Spam</div>
-      </div>
-      <div class="sb-stat s-clean">
-        <div class="sb-stat-val" id="s-clean">—</div>
-        <div class="sb-stat-lbl">Clean</div>
-      </div>
-      <div class="sb-stat s-pct">
-        <div class="sb-stat-val" id="s-pct">—</div>
-        <div class="sb-stat-lbl">Spam %</div>
-      </div>
-    </div>
+    <nav class="sidebar-nav">
+      <a href="{{ url_for('inbox') }}" class="sidebar-link active">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+        </svg>
+        Dashboard
+      </a>
+      <a href="{{ url_for('inbox') }}#inbox" class="sidebar-link">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0H4"/>
+        </svg>
+        Inbox Analysis
+      </a>
+      <a href="{{ url_for('inbox') }}#history" class="sidebar-link">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+        </svg>
+        Threat History
+      </a>
+    </nav>
 
-    <div class="sb-ring-wrap">
-      <svg width="56" height="56" viewBox="0 0 56 56">
-        <circle class="ring-track" cx="28" cy="28" r="25"/>
-        <circle class="ring-fill"  cx="28" cy="28" r="25" id="ring-fill"/>
-      </svg>
-      <div>
-        <div class="ring-label">Spam Rate</div>
-        <div class="ring-pct" id="ring-pct">0%</div>
-      </div>
-    </div>
-
-    <div class="sb-actions">
-      <button class="btn-scan" id="btn-scan" onclick="scanAll()">
-        <span id="scan-ico">⚡</span>
-        <span id="scan-txt">SCAN INBOX</span>
-      </button>
-      <a href="/logout" class="btn-logout">↩ DISCONNECT</a>
+    <div class="sidebar-logout">
+      <a href="{{ url_for('logout') }}" class="sidebar-link" style="color:var(--red);">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+        Logout
+      </a>
     </div>
   </aside>
 
   <!-- ══ MAIN ══ -->
-  <main class="main">
-    <div class="main-top">
-      <div style="display:flex;align-items:center">
-        <div class="main-top-title">INBOX</div>
-        <span class="inbox-count" id="inbox-count">—</span>
+  <main class="main-content">
+
+    <!-- Header -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.75rem;">
+      <div>
+        <h1 style="font-family:'Poppins',sans-serif; font-weight:800; font-size:1.5rem; margin-bottom:2px;">Dashboard</h1>
+        <p class="text-secondary text-sm">Overview of your email security</p>
       </div>
-      <div class="main-top-right">
-        <button class="filter-btn active" onclick="setFilter('all',this)">ALL</button>
-        <button class="filter-btn" onclick="setFilter('spam',this)">SPAM</button>
-        <button class="filter-btn" onclick="setFilter('clean',this)">CLEAN</button>
-        <button class="btn-page" id="btn-prev" onclick="loadPage(currentPage-1)" disabled>← PREV</button>
-        <button class="btn-page" id="btn-next" onclick="loadPage(currentPage+1)">NEXT →</button>
+      <button id="scanBtn" onclick="scanInbox()" class="btn btn-primary">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        Scan Inbox
+        <div class="loading-spinner" id="scanSpinner"></div>
+      </button>
+    </div>
+
+    <!-- Stat Cards -->
+    <div class="stats-grid" id="statsGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem;">
+      <div class="stat-card green">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:0.5rem;">
+          <div style="width:36px; height:36px; background:rgba(34,197,94,0.15); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1.1rem;">✅</div>
+          <span class="text-secondary text-sm font-bold">Safe Emails</span>
+        </div>
+        <div class="stat-value text-green" id="safeCount" data-count="0">0</div>
+        <div class="text-xs text-muted mt-1" id="safeLabel">Scan your inbox to see results</div>
+      </div>
+
+      <div class="stat-card red">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:0.5rem;">
+          <div style="width:36px; height:36px; background:rgba(239,68,68,0.15); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1.1rem;">🚫</div>
+          <span class="text-secondary text-sm font-bold">Spam / Phishing Emails</span>
+        </div>
+        <div class="stat-value text-red" id="spamCount" data-count="0">0</div>
+        <div class="text-xs text-muted mt-1" id="spamLabel">Scan your inbox to see results</div>
       </div>
     </div>
 
-    <div class="email-list" id="email-list">
-      <div class="state-msg">
-        <div class="spinner"></div>
-        <span>FETCHING INBOX…</span>
+    <!-- Chart + Category -->
+    <div style="display:grid; grid-template-columns:2fr 1fr; gap:1rem; margin-bottom:1.5rem;">
+
+      <!-- Chart -->
+      <div class="glass-card" style="padding:1.25rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+          <h3 style="font-family:'Poppins',sans-serif; font-weight:700; font-size:0.9rem;">Email Analysis</h3>
+          <div style="display:flex; gap:12px; font-size:0.75rem;">
+            <span style="color:var(--green);">● Safe</span>
+            <span style="color:var(--red);">● Spam</span>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="emailChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Category donut -->
+      <div class="glass-card" style="padding:1.25rem;">
+        <h3 style="font-family:'Poppins',sans-serif; font-weight:700; font-size:0.9rem; margin-bottom:1rem;">Emails by Category</h3>
+        <div style="height:150px; display:flex; align-items:center; justify-content:center;">
+          <canvas id="donutChart"></canvas>
+        </div>
+        <div style="display:flex; gap:1rem; justify-content:center; margin-top:0.75rem; font-size:0.75rem;">
+          <span style="color:var(--green);">● Safe <span id="safePct">77%</span></span>
+          <span style="color:var(--red);">● Spam <span id="spamPct">23%</span></span>
+        </div>
       </div>
     </div>
+
+    <!-- Recent Scans + Latest Emails -->
+    <div style="display:grid; grid-template-columns:1fr 2fr; gap:1rem;" id="inbox">
+
+      <!-- Recent Scans -->
+      <div class="glass-card" style="padding:1.25rem;">
+        <h3 style="font-family:'Poppins',sans-serif; font-weight:700; font-size:0.9rem; margin-bottom:1rem;">Recent Scans</h3>
+        <div id="recentScans" style="display:flex; flex-direction:column; gap:8px; font-size:0.8rem;">
+          <div class="text-muted text-sm">No scans yet. Click "Scan Inbox".</div>
+        </div>
+      </div>
+
+      <!-- Latest Emails -->
+      <div class="glass-card" style="padding:1.25rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+          <h3 style="font-family:'Poppins',sans-serif; font-weight:700; font-size:0.9rem;">Latest Emails</h3>
+          <span class="text-xs text-blue" style="cursor:pointer;">View All</span>
+        </div>
+
+        <!-- Filter tabs -->
+        <div style="display:flex; gap:8px; margin-bottom:1rem;">
+          <button class="btn btn-sm active-tab" id="tabAll"  onclick="filterTable('all')">All</button>
+          <button class="btn btn-sm btn-ghost" id="tabSafe" onclick="filterTable('safe')">Safe</button>
+          <button class="btn btn-sm btn-ghost" id="tabSpam" onclick="filterTable('spam')">Spam</button>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table class="data-table" id="emailTable">
+            <thead>
+              <tr>
+                <th>Sender</th>
+                <th>Subject</th>
+                <th>Status</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody id="emailTableBody">
+              <tr><td colspan="4" class="text-muted text-sm" style="text-align:center; padding:1.5rem;">Scan inbox to load emails</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Threat History -->
+    <div id="history" style="margin-top:1.5rem;">
+      <div class="glass-card" style="padding:1.25rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+          <h3 style="font-family:'Poppins',sans-serif; font-weight:700; font-size:0.9rem;">Threat History</h3>
+          <input type="text" class="input-field" placeholder="🔍 Search emails..." id="historySearch"
+            style="width:200px; padding:6px 12px;" oninput="searchHistory(this.value)"/>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Sender</th><th>Subject</th><th>Status</th><th>Score</th><th>Date & Time</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody">
+              <tr><td colspan="5" class="text-muted text-sm" style="text-align:center; padding:1.5rem;">No history yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </main>
-
-  <!-- ══ DETAIL ══ -->
-  <aside class="detail hidden" id="detail">
-    <div class="detail-hdr">
-      <span class="detail-hdr-title">ANALYSIS</span>
-      <button class="btn-close" onclick="closeDetail()">✕</button>
-    </div>
-    <div class="detail-body" id="detail-body"></div>
-  </aside>
-
 </div>
 
+{% endblock %}
+
+{% block scripts %}
 <script>
-/* ── CURSOR ── */
-var cur=document.getElementById('cursor'),ring=document.getElementById('cursor-ring');
-var mx=window.innerWidth/2,my=window.innerHeight/2,rx=mx,ry=my;
-document.addEventListener('mousemove',function(e){mx=e.clientX;my=e.clientY;cur.style.left=mx+'px';cur.style.top=my+'px'});
-(function anim(){rx+=(mx-rx)*.11;ry+=(my-ry)*.11;ring.style.left=rx+'px';ring.style.top=ry+'px';requestAnimationFrame(anim)})();
-document.querySelectorAll('a,button').forEach(function(el){
-  el.addEventListener('mouseenter',function(){cur.style.width='14px';cur.style.height='14px';ring.style.width='44px';ring.style.height='44px'});
-  el.addEventListener('mouseleave',function(){cur.style.width='8px';cur.style.height='8px';ring.style.width='32px';ring.style.height='32px'});
-});
+let allEmails = [];
+let chartInst = null;
+let donutInst = null;
 
-/* ── PARTICLES ── */
-var canvas=document.getElementById('particle-canvas');
-var ctx=canvas.getContext('2d');
-var W,H,parts=[];
-function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight}
-resize();window.addEventListener('resize',resize);
-function Particle(){this.reset()}
-Particle.prototype.reset=function(){
-  this.x=Math.random()*W;this.y=Math.random()*H;
-  this.size=Math.random()*1.5+.3;
-  this.vx=(Math.random()-.5)*.22;this.vy=(Math.random()-.5)*.22;
-  this.life=Math.random()*200+80;this.maxLife=this.life;
-  var r=Math.random();this.type=r<.55?'gold':r<.8?'blue':'white';
-};
-Particle.prototype.update=function(){
-  this.x+=this.vx;this.y+=this.vy;this.life--;
-  if(this.life<=0||this.x<-10||this.x>W+10||this.y<-10||this.y>H+10)this.reset();
-};
-Particle.prototype.draw=function(){
-  var a=(this.life/this.maxLife)*.55;
-  var c=this.type==='gold'?'rgba(212,175,55,'+a+')':this.type==='blue'?'rgba(46,134,193,'+(a*.45)+')':'rgba(255,255,255,'+(a*.2)+')';
-  ctx.beginPath();ctx.arc(this.x,this.y,this.size,0,Math.PI*2);ctx.fillStyle=c;ctx.fill();
-};
-for(var i=0;i<120;i++)parts.push(new Particle());
-var mgx=W/2,mgy=H/2,mgActive=false;
-document.addEventListener('mousemove',function(e){mgx=e.clientX;mgy=e.clientY;mgActive=true});
-(function loop(){
-  ctx.clearRect(0,0,W,H);
-  if(mgActive){var g=ctx.createRadialGradient(mgx,mgy,0,mgx,mgy,180);g.addColorStop(0,'rgba(212,175,55,.03)');g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.fillRect(0,0,W,H)}
-  for(var i=0;i<parts.length;i++){
-    parts[i].update();parts[i].draw();
-    for(var j=i+1;j<parts.length;j++){
-      var dx=parts[i].x-parts[j].x,dy=parts[i].y-parts[j].y,d=Math.sqrt(dx*dx+dy*dy);
-      if(d<70){ctx.beginPath();ctx.moveTo(parts[i].x,parts[i].y);ctx.lineTo(parts[j].x,parts[j].y);ctx.strokeStyle='rgba(212,175,55,'+(0.05*(1-d/70))+')';ctx.lineWidth=.35;ctx.stroke()}
+/* ── Charts ── */
+function initCharts(safe = 0, spam = 0) {
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const ctx1  = document.getElementById('emailChart').getContext('2d');
+  if (chartInst) chartInst.destroy();
+  chartInst = new Chart(ctx1, {
+    type: 'line',
+    data: {
+      labels: days,
+      datasets: [
+        { label:'Safe', data:[40,55,45,60,safe||50,65,safe||70], borderColor:'#22C55E', backgroundColor:'rgba(34,197,94,0.1)', tension:0.4, fill:true, pointRadius:3 },
+        { label:'Spam', data:[10,18,12,20,spam||15,8,spam||12],  borderColor:'#EF4444', backgroundColor:'rgba(239,68,68,0.1)', tension:0.4, fill:true, pointRadius:3 }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{
+        x:{ grid:{ color:'rgba(255,255,255,0.03)' }, ticks:{ color:'#64748B', font:{size:10} } },
+        y:{ grid:{ color:'rgba(255,255,255,0.03)' }, ticks:{ color:'#64748B', font:{size:10} } }
+      }
     }
-  }
-  requestAnimationFrame(loop);
-})();
+  });
 
-/* ── APP STATE ── */
-var currentPage=1,allEmails=[],currentFilter='all';
+  const ctx2 = document.getElementById('donutChart').getContext('2d');
+  if (donutInst) donutInst.destroy();
+  const total  = safe + spam || 100;
+  const safePct = Math.round(safe / total * 100) || 77;
+  const spamPct = 100 - safePct;
+  donutInst = new Chart(ctx2, {
+    type:'doughnut',
+    data:{
+      labels:['Safe','Spam'],
+      datasets:[{ data:[safePct, spamPct], backgroundColor:['rgba(34,197,94,0.8)','rgba(239,68,68,0.8)'], borderWidth:0, hoverOffset:4 }]
+    },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, cutout:'70%' }
+  });
 
-/* avatar */
-(function(){
-  var em=document.getElementById('sb-email').textContent.trim();
-  document.getElementById('sb-avatar').textContent=em?em[0].toUpperCase():'?';
-})();
+  document.getElementById('safePct').textContent = safePct + '%';
+  document.getElementById('spamPct').textContent = spamPct + '%';
+}
 
-document.addEventListener('DOMContentLoaded',function(){loadPage(1)});
+/* ── Scan inbox ── */
+async function scanInbox() {
+  const btn     = document.getElementById('scanBtn');
+  const spinner = document.getElementById('scanSpinner');
+  btn.disabled  = true;
+  spinner.style.display = 'block';
 
-async function loadPage(page){
-  if(page<1)return;
-  currentPage=page;
-  document.getElementById('btn-prev').disabled=page===1;
-  document.getElementById('email-list').innerHTML='<div class="state-msg"><div class="spinner"></div><span>LOADING PAGE '+page+'…</span></div>';
-  try{
-    var res=await fetch('/api/emails?page='+page+'&limit=25');
-    var data=await res.json();
-    if(data.error)throw new Error(data.error);
-    allEmails=data.emails||[];
-    renderList();updateStats();
-  }catch(e){
-    document.getElementById('email-list').innerHTML='<div class="state-msg">⚠ '+esc(e.message)+'</div>';
+  try {
+    // fetch emails
+    const r1   = await fetch('/api/emails');
+    const d1   = await r1.json();
+    if (d1.error) { alert(d1.error); return; }
+
+    // scan
+    const r2   = await fetch('/api/scan', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ emails: d1.emails })
+    });
+    const d2   = await r2.json();
+    if (d2.error) { alert(d2.error); return; }
+
+    allEmails  = d2.results || [];
+    renderDashboard(d2);
+  } catch(e) {
+    alert('Error scanning inbox: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    spinner.style.display = 'none';
   }
 }
 
-function renderList(){
-  var list=currentFilter==='all'?allEmails:currentFilter==='spam'?allEmails.filter(function(e){return e.prediction===1}):allEmails.filter(function(e){return e.prediction===0});
-  document.getElementById('inbox-count').textContent=list.length+' EMAILS';
-  if(!list.length){document.getElementById('email-list').innerHTML='<div class="state-msg">📭 NO EMAILS FOUND.</div>';return}
-  document.getElementById('email-list').innerHTML=list.map(function(em,i){
-    var idx=allEmails.indexOf(em);
-    var cls=em.prediction===1?'is-spam':em.prediction===0?'is-ham':'';
-    var bCls=em.prediction===1?'badge-spam':em.prediction===0?'badge-ham':'badge-pending';
-    var bTxt=em.prediction===1?'SPAM':em.prediction===0?'CLEAN':'—';
-    return '<div class="erow '+cls+'" id="row-'+idx+'" onclick="selectEmail('+idx+')" style="animation-delay:'+i*.022+'s"><div class="erow-bar"></div><div class="erow-body"><div class="erow-top"><div class="erow-from">'+esc(em.from||'Unknown')+'</div><div class="erow-date">'+fmtDate(em.date)+'</div></div><div class="erow-subject">'+esc(em.subject||'(no subject)')+'</div><div class="erow-snippet">'+esc((em.snippet||'').slice(0,100))+'</div></div><div class="erow-badge-col"><span class="badge '+bCls+'" id="badge-'+idx+'">'+bTxt+'</span></div></div>';
+function renderDashboard(data) {
+  const safe = data.ham_count  || 0;
+  const spam = data.spam_count || 0;
+  const total = data.total     || 0;
+
+  // animate counts
+  animateNum('safeCount', safe);
+  animateNum('spamCount', spam);
+  document.getElementById('safeLabel').textContent = `+${Math.round(safe/total*18||0)}% this week`;
+  document.getElementById('spamLabel').textContent = `-${Math.round(spam/total*12||0)}% this week`;
+
+  initCharts(safe, spam);
+  renderTable(allEmails);
+  renderHistory(allEmails);
+  renderRecentScans(allEmails.slice(0, 5));
+}
+
+function animateNum(id, target) {
+  const el = document.getElementById(id);
+  const dur = 1000; const start = performance.now();
+  function step(now) {
+    const p = Math.min((now - start) / dur, 1);
+    el.textContent = Math.round(p * target);
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function renderTable(emails) {
+  const tbody = document.getElementById('emailTableBody');
+  if (!emails.length) { tbody.innerHTML = '<tr><td colspan="4" class="text-muted text-sm" style="text-align:center;padding:1.5rem;">No emails found</td></tr>'; return; }
+  tbody.innerHTML = emails.slice(0,20).map(e => {
+    const isSpam = e.prediction === 1;
+    const badge  = isSpam ? '<span class="badge badge-spam">SPAM</span>' : '<span class="badge badge-safe">SAFE</span>';
+    const time   = formatTime(e.date);
+    return `<tr>
+      <td class="truncate" style="max-width:140px;">${escape(e.from || '')}</td>
+      <td class="truncate" style="max-width:180px;">${escape(e.subject || '')}</td>
+      <td>${badge}</td>
+      <td class="text-xs text-muted">${time}</td>
+    </tr>`;
   }).join('');
 }
 
-function setFilter(f,btn){
-  currentFilter=f;
-  document.querySelectorAll('.filter-btn').forEach(function(b){b.classList.remove('active')});
-  btn.classList.add('active');renderList();
+function renderHistory(emails) {
+  const tbody = document.getElementById('historyBody');
+  if (!emails.length) return;
+  tbody.innerHTML = emails.map(e => {
+    const isSpam = e.prediction === 1;
+    const score  = Math.round((e.probability || 0.5) * 100);
+    const badge  = isSpam ? '<span class="badge badge-spam">SPAM</span>' : '<span class="badge badge-safe">SAFE</span>';
+    return `<tr data-label="${isSpam?'spam':'safe'}">
+      <td class="truncate" style="max-width:130px;">${escape(e.from || '')}</td>
+      <td class="truncate" style="max-width:200px;">${escape(e.subject || '')}</td>
+      <td>${badge}</td>
+      <td><span style="color:${isSpam?'var(--red)':'var(--green)'};">${score}%</span></td>
+      <td class="text-xs text-muted">${formatTime(e.date)}</td>
+    </tr>`;
+  }).join('');
 }
 
-async function selectEmail(idx){
-  document.querySelectorAll('.erow').forEach(function(r){r.classList.remove('selected')});
-  var row=document.getElementById('row-'+idx);if(row)row.classList.add('selected');
-  var em=allEmails[idx];
-  if(em.prediction!==undefined){showDetail(em);return}
-  setBadge(idx,'badge-scanning','…');
-  if(row)row.classList.add('scanning');
-  try{
-    var res=await fetch('/api/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({raw:em.raw})});
-    var pred=await res.json();
-    if(pred.error)throw new Error(pred.error);
-    Object.assign(allEmails[idx],pred);applyResult(idx,pred);showDetail(allEmails[idx]);
-  }catch(e){
-    setBadge(idx,'badge-pending','?');if(row)row.classList.remove('scanning');
-  }
+function renderRecentScans(emails) {
+  const el = document.getElementById('recentScans');
+  el.innerHTML = emails.map(e => {
+    const isSpam = e.prediction === 1;
+    return `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-subtle);">
+      <span class="truncate" style="max-width:140px; font-size:0.8rem;">${escape(e.subject||'(no subject)')}</span>
+      <span class="badge ${isSpam?'badge-spam':'badge-safe'}">${isSpam?'SPAM':'SAFE'}</span>
+    </div>`;
+  }).join('');
 }
 
-async function scanAll(){
-  var btn=document.getElementById('btn-scan'),ico=document.getElementById('scan-ico'),txt=document.getElementById('scan-txt');
-  btn.disabled=true;ico.textContent='⏳';txt.textContent='SCANNING…';
-  try{
-    var res=await fetch('/api/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({emails:allEmails})});
-    var data=await res.json();
-    if(data.error)throw new Error(data.error);
-    data.results.forEach(function(r,i){Object.assign(allEmails[i],r);applyResult(i,r)});
-    updateStats(data);renderList();
-  }catch(e){alert('Scan failed: '+e.message);}
-  finally{btn.disabled=false;ico.textContent='⚡';txt.textContent='SCAN INBOX'}
+function filterTable(type) {
+  ['tabAll','tabSafe','tabSpam'].forEach(id => {
+    document.getElementById(id).className = 'btn btn-sm btn-ghost';
+  });
+  document.getElementById('tab' + type.charAt(0).toUpperCase() + type.slice(1)).className = 'btn btn-sm active-tab';
+
+  const rows = document.querySelectorAll('#emailTableBody tr');
+  rows.forEach(row => {
+    if (type === 'all') { row.style.display = ''; return; }
+    const badge = row.querySelector('.badge');
+    if (!badge) return;
+    const label = badge.classList.contains('badge-safe') ? 'safe' : 'spam';
+    row.style.display = label === type ? '' : 'none';
+  });
 }
 
-function applyResult(idx,pred){
-  var row=document.getElementById('row-'+idx);if(!row)return;
-  row.classList.remove('scanning','is-spam','is-ham');
-  if(pred.prediction===1){row.classList.add('is-spam');setBadge(idx,'badge-spam','SPAM')}
-  else if(pred.prediction===0){row.classList.add('is-ham');setBadge(idx,'badge-ham','CLEAN')}
-}
-function setBadge(idx,cls,txt){var b=document.getElementById('badge-'+idx);if(!b)return;b.className='badge '+cls;b.textContent=txt}
-
-function showDetail(em){
-  var panel=document.getElementById('detail'),body=document.getElementById('detail-body');
-  panel.classList.remove('hidden');
-  var isSpam=em.prediction===1,cls=isSpam?'spam':'ham';
-  var prob=((em.probability||0)*100).toFixed(1);
-  body.innerHTML=
-    '<div class="result-hero '+cls+'">'+
-      '<span class="hero-icon">'+(isSpam?'🚫':'✅')+'</span>'+
-      '<div class="hero-verdict '+cls+'">'+(isSpam?'SPAM DETECTED':'LEGITIMATE')+'</div>'+
-      '<div class="hero-conf">CONFIDENCE · '+prob+'%</div>'+
-    '</div>'+
-    '<div class="prob-wrap">'+
-      '<div class="prob-labels">'+
-        '<span class="prob-lbl">Spam Probability</span>'+
-        '<span class="prob-val">'+prob+'%</span>'+
-      '</div>'+
-      '<div class="prob-track"><div class="prob-fill '+cls+'" style="width:'+prob+'%"></div></div>'+
-    '</div>'+
-    '<div class="meta-block">'+
-      '<div class="meta-row"><div class="meta-key">From</div><div class="meta-val">'+esc(em.from||'—')+'</div></div>'+
-      '<div class="meta-row"><div class="meta-key">Subject</div><div class="meta-val">'+esc(em.subject||'—')+'</div></div>'+
-      '<div class="meta-row"><div class="meta-key">Date</div><div class="meta-val">'+esc(em.date||'—')+'</div></div>'+
-    '</div>'+
-    '<div class="meta-block">'+
-      '<div class="feature-row"><span>HTML Content</span><span class="f-det '+(isSpam?'f-red':'f-green')+'">'+(isSpam?'DETECTED':'NONE')+'</span></div>'+
-      '<div class="feature-row"><span>Uppercase Ratio</span><span class="f-det '+(isSpam?'f-gold':'f-green')+'">'+(isSpam?'HIGH':'NORMAL')+'</span></div>'+
-      '<div class="feature-row"><span>URL Count</span><span class="f-det '+(isSpam?'f-red':'f-green')+'">'+(isSpam?'ELEVATED':'OK')+'</span></div>'+
-      '<div class="feature-row"><span>Sender Trust</span><span class="f-det '+(isSpam?'f-red':'f-green')+'">'+(isSpam?'LOW':'VERIFIED')+'</span></div>'+
-    '</div>'+
-    '<div class="snippet-block">'+
-      '<div class="snippet-label">Preview</div>'+
-      '<div class="snippet-text">'+esc((em.snippet||'').slice(0,350))+'</div>'+
-    '</div>';
+function searchHistory(q) {
+  const rows = document.querySelectorAll('#historyBody tr');
+  rows.forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
+  });
 }
 
-function closeDetail(){
-  document.getElementById('detail').classList.add('hidden');
-  document.querySelectorAll('.erow').forEach(function(r){r.classList.remove('selected')});
+function formatTime(dateStr) {
+  if (!dateStr) return '—';
+  try {
+    return new Date(dateStr).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+  } catch { return dateStr; }
 }
 
-function updateStats(data){
-  var total=allEmails.length;
-  var spam=data?data.spam_count:allEmails.filter(function(e){return e.prediction===1}).length;
-  var ham=data?data.ham_count:allEmails.filter(function(e){return e.prediction===0}).length;
-  var pct=total?Math.round((spam/total)*100):0;
-  document.getElementById('s-total').textContent=total;
-  document.getElementById('s-spam').textContent=spam;
-  document.getElementById('s-clean').textContent=ham;
-  document.getElementById('s-pct').textContent=pct+'%';
-  document.getElementById('ring-pct').textContent=pct+'%';
-  document.getElementById('inbox-count').textContent=total+' EMAILS';
-  document.getElementById('ring-fill').style.strokeDashoffset=157*(1-pct/100);
+function escape(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
-function fmtDate(d){if(!d)return '';try{return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}catch(e){return String(d).slice(0,10)}}
+// style active tab
+const activeTabStyle = document.createElement('style');
+activeTabStyle.textContent = `.active-tab { background:rgba(37,99,235,0.2); border:1px solid rgba(37,99,235,0.4); color:var(--blue-light); }`;
+document.head.appendChild(activeTabStyle);
+
+// init charts on load
+document.addEventListener('DOMContentLoaded', () => { initCharts(); });
 </script>
-</body>
-</html>
+{% endblock %}

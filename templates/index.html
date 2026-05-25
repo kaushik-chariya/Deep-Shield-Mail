@@ -1,638 +1,236 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Deep Shield Mail — AI Email Protection</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
-<style>
-:root{
-  --gold:#D4AF37;--gold-bright:#FFD700;--gold-dim:#8B7316;
-  --bg-void:#03030A;--bg-deep:#060612;--bg-card:rgba(8,12,30,0.78);
-  --navy:#080C1E;--navy2:#0D1530;
-  --blue-eda:#2E86C1;--red-eda:#E74C3C;
-  --green-safe:#00E87A;--orange-phish:#FF6B35;--purple-mal:#9B59B6;
-  --glow-gold:rgba(212,175,55,0.35);--glow-blue:rgba(46,134,193,0.3);
-  --glass:rgba(255,255,255,0.04);--glass2:rgba(255,255,255,0.07);
-  --border-glass:rgba(212,175,55,0.18);--border-dim:rgba(255,255,255,0.07);
-  --text-primary:#F0EDD6;--text-muted:#8A8A9A;--text-dim:#4A4A5A;
-}
-*{margin:0;padding:0;box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{background:var(--bg-void);color:var(--text-primary);font-family:'Rajdhani',sans-serif;overflow-x:hidden;cursor:none}
+{% extends "base.html" %}
+{% block title %}Deep Shield Mail — AI-Powered Email Security{% endblock %}
 
-/* ── CUSTOM CURSOR ─── */
-#cursor{position:fixed;width:8px;height:8px;background:var(--gold-bright);border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:width .15s,height .15s}
-#cursor-ring{position:fixed;width:32px;height:32px;border:1px solid rgba(212,175,55,0.5);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:all .08s ease}
+{% block content %}
 
-/* ── CANVAS ─── */
-#particle-canvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none}
+<!-- ══════════ NAVBAR ══════════ -->
+<nav class="navbar">
+  <a href="{{ url_for('index') }}" class="nav-brand">
+    <div class="nav-logo-wrap" data-logo="shield-sm"></div>
+    <span class="nav-brand-name">Deep Shield Mail</span>
+  </a>
 
-/* ── GRID BG ─── */
-.grid-bg{
-  position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;
-  background-image:linear-gradient(rgba(212,175,55,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(212,175,55,0.025) 1px,transparent 1px);
-  background-size:60px 60px;
-}
-
-.page{position:relative;z-index:2}
-
-/* ── NAV ─── */
-nav{
-  position:fixed;top:0;left:0;right:0;z-index:100;
-  padding:.9rem 2.5rem;display:flex;align-items:center;justify-content:space-between;
-  background:rgba(3,3,10,0.75);backdrop-filter:blur(24px);
-  border-bottom:1px solid var(--border-glass);
-}
-.nav-logo{font-family:'Orbitron',monospace;font-size:1rem;font-weight:700;
-  background:linear-gradient(135deg,var(--gold-bright),var(--gold),#8B6914);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:2px}
-.nav-status{display:flex;align-items:center;gap:.5rem;font-family:'Space Mono',monospace;font-size:.58rem;color:var(--text-muted)}
-.status-dot{width:6px;height:6px;border-radius:50%;background:var(--green-safe);box-shadow:0 0 8px var(--green-safe);animation:pulse-dot 2s infinite}
-@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
-
-/* ── HERO ─── */
-.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6rem 2rem 4rem;text-align:center;position:relative}
-.hero-glow{position:absolute;top:50%;left:50%;transform:translate(-50%,-55%);width:700px;height:700px;border-radius:50%;pointer-events:none;background:radial-gradient(ellipse,rgba(212,175,55,0.1) 0%,rgba(46,134,193,0.05) 40%,transparent 70%);animation:glow-breathe 4s ease-in-out infinite}
-@keyframes glow-breathe{0%,100%{transform:translate(-50%,-55%) scale(1);opacity:.8}50%{transform:translate(-50%,-55%) scale(1.18);opacity:1}}
-
-/* ── SHIELD ─── */
-.shield-wrap{position:relative;width:200px;height:220px;margin:0 auto 2.5rem;filter:drop-shadow(0 0 44px rgba(212,175,55,0.45))}
-.shield-svg{width:100%;height:100%;animation:shield-float 3s ease-in-out infinite}
-@keyframes shield-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
-.scan-ring{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:250px;height:250px;border-radius:50%;border:1px solid rgba(212,175,55,0.25);animation:scan-spin 8s linear infinite}
-.scan-ring::after{content:'';position:absolute;top:-3px;left:calc(50% - 3px);width:6px;height:6px;background:var(--gold-bright);border-radius:50%;box-shadow:0 0 14px 4px var(--gold-bright)}
-.scan-ring2{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:295px;height:295px;border-radius:50%;border:1px solid rgba(46,134,193,0.18);animation:scan-spin 14s linear infinite reverse}
-@keyframes scan-spin{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}
-.mail-particle{position:absolute;font-size:.9rem;animation:mail-fly 3s ease-in-out infinite;opacity:0;pointer-events:none}
-.mail-particle:nth-child(1){color:rgba(212,175,55,0.9);top:80px;left:-20px}
-.mail-particle:nth-child(2){color:rgba(46,134,193,0.8);top:100px;left:-25px;animation-delay:.9s}
-.mail-particle:nth-child(3){color:rgba(0,232,122,0.7);top:90px;left:-18px;animation-delay:1.8s}
-@keyframes mail-fly{0%{opacity:0;transform:translate(-80px,0) scale(.5)}35%{opacity:.9}65%{opacity:.6;transform:translate(0px,-30px) scale(.9)}100%{opacity:0;transform:translate(30px,-50px) scale(.3)}}
-
-/* ── TYPOGRAPHY ─── */
-.hero-tag{font-family:'Space Mono',monospace;font-size:.6rem;letter-spacing:4px;color:var(--gold);text-transform:uppercase;margin-bottom:1rem;opacity:.75}
-h1.hero-title{font-family:'Orbitron',monospace;font-size:clamp(1.9rem,5vw,3.8rem);font-weight:900;line-height:1.1;margin-bottom:1.2rem;background:linear-gradient(135deg,#FFFFFF 0%,var(--gold-bright) 40%,var(--gold) 70%,#6B5010 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 30px rgba(212,175,55,0.25))}
-.hero-sub{font-size:1.05rem;font-weight:300;color:rgba(240,237,214,0.55);max-width:560px;line-height:1.85;letter-spacing:.3px;margin-bottom:2.5rem}
-
-/* ── AUTH CARD ─── */
-.auth-card{background:var(--bg-card);backdrop-filter:blur(32px);border:1px solid var(--border-glass);border-radius:24px;padding:2.4rem 2rem;width:100%;max-width:460px;margin:0 auto;position:relative;overflow:hidden;box-shadow:0 0 80px rgba(212,175,55,0.07),0 40px 80px rgba(0,0,0,0.7)}
-.auth-card::before{content:'';position:absolute;inset:-1px;border-radius:24px;z-index:-1;background:linear-gradient(135deg,rgba(212,175,55,0.35),rgba(46,134,193,0.15),transparent,rgba(212,175,55,0.2));background-size:400% 400%;animation:border-glow 6s ease infinite}
-@keyframes border-glow{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-.auth-card-title{font-family:'Orbitron',monospace;font-size:1rem;font-weight:700;text-align:center;letter-spacing:3px;background:linear-gradient(135deg,var(--gold-bright),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.35rem}
-.auth-card-sub{font-family:'Space Mono',monospace;font-size:.56rem;color:var(--text-muted);text-align:center;letter-spacing:2px;margin-bottom:1.8rem}
-.auth-divider{height:1px;background:var(--border-glass);margin:1rem 0}
-
-/* ── BUTTONS ─── */
-.btn-auth{display:flex;align-items:center;gap:.9rem;width:100%;padding:.9rem 1.1rem;border-radius:12px;border:1px solid var(--border-glass);background:var(--glass);cursor:pointer;color:var(--text-primary);font-family:'Rajdhani',sans-serif;font-size:.95rem;font-weight:600;letter-spacing:.4px;text-decoration:none;transition:all .3s ease;position:relative;overflow:hidden;margin-bottom:.75rem}
-.btn-auth::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(212,175,55,0.07),transparent);transition:left .5s ease}
-.btn-auth:hover::before{left:100%}
-.btn-auth:hover{border-color:rgba(212,175,55,0.38);background:rgba(212,175,55,0.04);transform:translateX(3px)}
-.btn-auth.demo{border-color:rgba(0,232,122,0.2)}
-.btn-auth.demo:hover{border-color:rgba(0,232,122,0.5);background:rgba(0,232,122,0.04)}
-.btn-auth.disabled{opacity:.38;cursor:not-allowed;pointer-events:none}
-.btn-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.1rem}
-.btn-icon.i-gmail{background:rgba(46,134,193,0.14)}
-.btn-icon.i-manual{background:rgba(212,175,55,0.12)}
-.btn-icon.i-demo{background:rgba(0,232,122,0.1)}
-.btn-info{display:flex;flex-direction:column;flex:1;text-align:left}
-.btn-info strong{font-size:.9rem;font-weight:700}
-.btn-info span{font-size:.67rem;color:var(--text-muted);letter-spacing:.2px;margin-top:.1rem}
-.btn-arrow{color:var(--gold-dim);font-size:1rem;transition:transform .3s,color .3s;flex-shrink:0}
-.btn-auth:hover .btn-arrow{transform:translateX(4px);color:var(--gold)}
-.auth-status{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-top:1.1rem;font-family:'Space Mono',monospace;font-size:.57rem;color:var(--text-muted)}
-.auth-status-dot{width:5px;height:5px;border-radius:50%;background:var(--green-safe);box-shadow:0 0 6px var(--green-safe);animation:pulse-dot 1.5s infinite}
-
-/* ── SECTIONS ─── */
-section{padding:5rem 2rem;position:relative}
-.section-header{text-align:center;margin-bottom:3.5rem}
-.section-tag{font-family:'Space Mono',monospace;font-size:.58rem;letter-spacing:4px;color:var(--gold);text-transform:uppercase;display:block;margin-bottom:.75rem;opacity:.75}
-.section-title{font-family:'Orbitron',monospace;font-size:clamp(1.3rem,3vw,2.1rem);font-weight:700;letter-spacing:1px;line-height:1.25}
-.section-title span{background:linear-gradient(135deg,var(--gold-bright),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-
-/* ── STATS BAR ─── */
-.stats-bar{display:flex;justify-content:center;gap:3rem;flex-wrap:wrap;padding:2.5rem;background:var(--bg-card);border-top:1px solid var(--border-glass);border-bottom:1px solid var(--border-glass)}
-.stat-item{text-align:center}
-.stat-val{font-family:'Orbitron',monospace;font-size:2rem;font-weight:900;background:linear-gradient(135deg,var(--gold-bright),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.stat-label{font-size:.68rem;color:var(--text-muted);letter-spacing:2px;font-family:'Space Mono',monospace;margin-top:.2rem}
-
-/* ── ANALYSIS CARDS ─── */
-.analysis-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.2rem;max-width:1100px;margin:0 auto}
-.analysis-card{background:var(--bg-card);border:1px solid var(--border-glass);border-radius:16px;padding:1.4rem;position:relative;overflow:hidden;transition:transform .3s,border-color .3s}
-.analysis-card:hover{transform:translateY(-4px);border-color:rgba(212,175,55,0.28)}
-.analysis-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px}
-.ac-type-meter::after{background:linear-gradient(90deg,var(--red-eda),var(--gold),var(--green-safe))}
-.ac-type-conf::after{background:linear-gradient(90deg,var(--blue-eda),#00C8FF)}
-.ac-type-nlp::after{background:linear-gradient(90deg,var(--purple-mal),var(--blue-eda))}
-.ac-type-sender::after{background:linear-gradient(90deg,var(--green-safe),var(--blue-eda))}
-.ac-type-header::after{background:linear-gradient(90deg,var(--gold),var(--orange-phish))}
-.ac-type-risk::after{background:linear-gradient(90deg,var(--red-eda),var(--purple-mal))}
-.ac-label{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:.8rem}
-.ac-value{font-family:'Orbitron',monospace;font-size:1.8rem;font-weight:700;color:var(--text-primary);margin-bottom:.6rem}
-.ac-bar-wrap{height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-bottom:.6rem}
-.ac-bar{height:100%;border-radius:2px;animation:bar-fill 2s ease-out forwards;width:0}
-.ac-bar.danger{background:linear-gradient(90deg,var(--orange-phish),var(--red-eda))}
-.ac-bar.warn{background:linear-gradient(90deg,var(--gold),var(--orange-phish))}
-.ac-bar.safe{background:linear-gradient(90deg,var(--blue-eda),var(--green-safe))}
-@keyframes bar-fill{from{width:0}to{width:var(--w)}}
-.ac-sub{font-size:.78rem;color:var(--text-muted);letter-spacing:.2px;line-height:1.5}
-.kw-wrap{display:flex;flex-wrap:wrap;gap:.4rem;margin:.5rem 0}
-.kw-tag{padding:.2rem .55rem;border-radius:100px;font-size:.6rem;font-family:'Space Mono',monospace;letter-spacing:.4px}
-.kw-spam{background:rgba(231,76,60,0.14);color:#FF8F80;border:1px solid rgba(231,76,60,0.28)}
-.kw-safe{background:rgba(0,232,122,0.1);color:#00E87A;border:1px solid rgba(0,232,122,0.25)}
-
-/* ── FEATURES ─── */
-.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.2rem;max-width:1000px;margin:0 auto}
-.feat-card{background:var(--bg-card);border:1px solid var(--border-dim);border-radius:16px;padding:1.8rem 1.5rem;transition:all .3s ease;position:relative;overflow:hidden}
-.feat-card:hover{border-color:var(--border-glass);transform:translateY(-3px)}
-.feat-card:hover .feat-icon{filter:drop-shadow(0 0 14px currentColor);transform:scale(1.1)}
-.feat-icon{font-size:1.9rem;margin-bottom:.9rem;transition:all .3s;display:block;width:fit-content}
-.i-nlp{color:var(--purple-mal)}.i-header{color:var(--blue-eda)}.i-realtime{color:var(--green-safe)}.i-cloud{color:#00C8FF}.i-threat{color:var(--gold)}.i-malware{color:var(--red-eda)}
-.feat-title{font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;letter-spacing:1px;margin-bottom:.55rem;color:var(--text-primary)}
-.feat-desc{font-size:.82rem;color:var(--text-muted);line-height:1.72;font-weight:300}
-.feat-badge{position:absolute;top:.9rem;right:.9rem;font-size:.52rem;font-family:'Space Mono',monospace;letter-spacing:1px;padding:.18rem .45rem;border-radius:4px;background:rgba(212,175,55,0.09);color:var(--gold-dim);border:1px solid rgba(212,175,55,0.18)}
-
-/* ── RESULT CARDS ─── */
-.results-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1.2rem;max-width:1000px;margin:0 auto}
-.result-card{border-radius:20px;padding:2rem 1.4rem;text-align:center;position:relative;overflow:hidden;border:1px solid transparent;transition:all .3s ease}
-.result-card:hover{transform:translateY(-6px) scale(1.02)}
-.r-safe{background:rgba(0,232,122,0.04);border-color:rgba(0,232,122,0.18)}
-.r-safe:hover{border-color:rgba(0,232,122,0.5);box-shadow:0 0 50px rgba(0,232,122,0.12)}
-.r-spam{background:rgba(212,175,55,0.04);border-color:rgba(212,175,55,0.18)}
-.r-spam:hover{border-color:rgba(212,175,55,0.5);box-shadow:0 0 50px rgba(212,175,55,0.12)}
-.r-phish{background:rgba(255,107,53,0.04);border-color:rgba(255,107,53,0.18)}
-.r-phish:hover{border-color:rgba(255,107,53,0.5);box-shadow:0 0 50px rgba(255,107,53,0.12)}
-.r-malware{background:rgba(155,89,182,0.04);border-color:rgba(155,89,182,0.18)}
-.r-malware:hover{border-color:rgba(155,89,182,0.5);box-shadow:0 0 50px rgba(155,89,182,0.12)}
-.rc-glow{position:absolute;top:-40%;left:50%;transform:translateX(-50%);width:180px;height:180px;border-radius:50%;pointer-events:none;opacity:.1}
-.r-safe .rc-glow{background:var(--green-safe)}.r-spam .rc-glow{background:var(--gold)}.r-phish .rc-glow{background:var(--orange-phish)}.r-malware .rc-glow{background:var(--purple-mal)}
-.rc-icon{font-size:2.4rem;margin-bottom:.7rem;display:block;position:relative;z-index:1}
-.rc-label{font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;letter-spacing:2px;margin-bottom:.4rem;position:relative;z-index:1}
-.r-safe .rc-label{color:var(--green-safe)}.r-spam .rc-label{color:var(--gold)}.r-phish .rc-label{color:var(--orange-phish)}.r-malware .rc-label{color:var(--purple-mal)}
-.rc-conf{font-family:'Orbitron',monospace;font-size:1.55rem;font-weight:700;color:var(--text-primary);position:relative;z-index:1}
-.rc-conf-label{font-size:.58rem;color:var(--text-muted);letter-spacing:2px;display:block;margin-top:.15rem;position:relative;z-index:1}
-.rc-desc{font-size:.73rem;color:var(--text-muted);margin-top:.7rem;line-height:1.55;position:relative;z-index:1}
-
-/* ── FOOTER ─── */
-footer{padding:2.2rem;text-align:center;border-top:1px solid var(--border-dim)}
-.footer-logo{font-family:'Orbitron',monospace;font-size:.85rem;font-weight:700;background:linear-gradient(135deg,var(--gold-bright),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:2px;margin-bottom:.4rem}
-footer p{font-family:'Space Mono',monospace;font-size:.57rem;color:var(--text-dim);letter-spacing:1px}
-
-/* ── FADE IN ─── */
-.fade-in{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .7s ease}
-.fade-in.visible{opacity:1;transform:translateY(0)}
-
-/* ── RESPONSIVE ─── */
-@media(max-width:600px){
-  nav{padding:.75rem 1.2rem}
-  .hero{padding:5rem 1.2rem 3rem}
-  .shield-wrap{width:155px;height:175px}
-  .stats-bar{gap:1.5rem;padding:1.5rem}
-  .stat-val{font-size:1.4rem}
-  section{padding:3.5rem 1.2rem}
-  body{cursor:auto}
-  #cursor,#cursor-ring{display:none}
-}
-</style>
-</head>
-<body>
-
-<div id="cursor"></div>
-<div id="cursor-ring"></div>
-<canvas id="particle-canvas"></canvas>
-<div class="grid-bg"></div>
-
-<div class="page">
-
-<!-- NAV -->
-<nav>
-  <div class="nav-logo">&#9876; DEEP SHIELD MAIL</div>
-  <div class="nav-status">
-    <div class="status-dot"></div>
-    AI MODEL ACTIVE &nbsp;&bull;&nbsp; THREAT ENGINE v3.1
-  </div>
+  <ul class="nav-links">
+    <li>
+      <span style="font-size:0.75rem; font-weight:700; padding:4px 10px; background:var(--blue-glow-soft); border:1px solid var(--border-glow); border-radius:20px; color:var(--blue-light); letter-spacing:0.05em;">
+        🤖 v2.1
+      </span>
+    </li>
+    <li><a href="{{ url_for('index') }}" class="active">🏠 Home</a></li>
+    <li><a href="{{ url_for('manual_email') }}">⚡ Manual Demo</a></li>
+    <li>
+      {% if google_enabled %}
+      <a href="{{ url_for('auth_gmail') }}" class="btn btn-gmail">
+        <img src="https://ssl.gstatic.com/ui/v1/icons/mail/rfr/gmail.ico" width="18" height="18" style="vertical-align:middle; margin-right:6px;">
+        Connect Gmail
+      </a>
+      {% else %}
+      <a href="{{ url_for('manual_email') }}" class="btn btn-primary">⚡ Try Demo</a>
+      {% endif %}
+    </li>
+  </ul>
 </nav>
 
-<!-- HERO -->
-<section class="hero">
-  <div class="hero-glow"></div>
+<!-- ══════════ HERO ══════════ -->
+<section style="max-width:1200px; margin:0 auto; padding:6rem 2rem 4rem;">
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:4rem; align-items:center;">
 
-  <div class="shield-wrap">
-    <div class="scan-ring2"></div>
-    <div class="scan-ring"></div>
-    <div class="mail-particle">&#9993;</div>
-    <div class="mail-particle">&#9993;</div>
-    <div class="mail-particle">&#9993;</div>
-    <svg class="shield-svg" viewBox="0 0 200 220" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="shieldG" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#D4AF37" stop-opacity="0.92"/>
-          <stop offset="55%" stop-color="#FFD700" stop-opacity="0.55"/>
-          <stop offset="100%" stop-color="#5A4010" stop-opacity="0.35"/>
-        </linearGradient>
-        <linearGradient id="innerG" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#0D1530"/>
-          <stop offset="100%" stop-color="#04040E"/>
-        </linearGradient>
-        <filter id="gf"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-      </defs>
-      <!-- outer shield glow -->
-      <path d="M100 8 L180 42 L180 112 C180 156 148 191 100 212 C52 191 20 156 20 112 L20 42 Z" fill="url(#shieldG)" filter="url(#gf)" opacity=".88"/>
-      <!-- inner body -->
-      <path d="M100 20 L168 50 L168 112 C168 149 140 179 100 197 C60 179 32 149 32 112 L32 50 Z" fill="url(#innerG)"/>
-      <!-- inner border -->
-      <path d="M100 20 L168 50 L168 112 C168 149 140 179 100 197 C60 179 32 149 32 112 L32 50 Z" fill="none" stroke="url(#shieldG)" stroke-width="1.2" opacity=".5"/>
-      <!-- mail envelope -->
-      <rect x="60" y="86" width="80" height="54" rx="7" fill="rgba(212,175,55,0.12)" stroke="rgba(212,175,55,0.65)" stroke-width="1.4"/>
-      <!-- envelope flap -->
-      <path d="M60 92 L100 118 L140 92" stroke="rgba(212,175,55,0.75)" stroke-width="1.4" fill="none" stroke-linecap="round"/>
-      <!-- decorative top bar -->
-      <line x1="72" y1="60" x2="128" y2="60" stroke="rgba(212,175,55,0.25)" stroke-width="1"/>
-      <line x1="86" y1="68" x2="114" y2="68" stroke="rgba(212,175,55,0.15)" stroke-width="1"/>
-      <!-- AI dots bottom -->
-      <circle cx="82" cy="156" r="2.5" fill="rgba(212,175,55,0.55)"/>
-      <circle cx="100" cy="162" r="3" fill="rgba(212,175,55,0.75)"/>
-      <circle cx="118" cy="156" r="2.5" fill="rgba(212,175,55,0.55)"/>
-    </svg>
-  </div>
-
-  <p class="hero-tag">POWERED BY ADVANCED NLP &nbsp;&bull;&nbsp; SPAMASSASSIN DATASET &nbsp;&bull;&nbsp; 5,796 EMAILS</p>
-  <h1 class="hero-title">Protect Your Inbox<br>With Precision AI</h1>
-  <p class="hero-sub">AI-powered spam, phishing &amp; malicious email detection<br>using advanced NLP models trained on real-world email corpus.</p>
-
-  <!-- AUTH CARD -->
-  <div class="auth-card fade-in">
-    <div class="auth-card-title">SECURE ACCESS</div>
-    <div class="auth-card-sub">CHOOSE YOUR ENTRY PROTOCOL</div>
-
-    {% if google_enabled %}
-    <a href="/auth/gmail" class="btn-auth">
-      <div class="btn-icon i-gmail">
-        <svg width="20" height="20" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-        </svg>
+    <!-- Left -->
+    <div>
+      <!-- Badges -->
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:2rem;">
+        <span class="badge badge-ai">⚡ Naive Bayes</span>
+        <span class="badge badge-ai">🧠 NLP Powered</span>
+        <span class="badge badge-ai">🔴 Real-time Detection</span>
+        <span class="badge badge-ai">💌 Gmail Security</span>
       </div>
-      <div class="btn-info">
-        <strong>Continue with Gmail</strong>
-        <span>OAuth 2.0 &nbsp;&bull;&nbsp; Encrypted &nbsp;&bull;&nbsp; Read-only access</span>
+
+      <h1 style="font-family:'Poppins',sans-serif; font-size:clamp(2.4rem,5vw,3.8rem); font-weight:800; line-height:1.1; margin-bottom:1.5rem; letter-spacing:-0.02em;">
+        Stop Email<br>
+        <span style="background:linear-gradient(135deg,#38BDF8,#2563EB); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">
+          Threats Instantly
+        </span>
+      </h1>
+
+      <p style="color:var(--text-secondary); font-size:1.1rem; line-height:1.8; margin-bottom:0.75rem; max-width:460px;">
+        Detect spam, phishing & malicious emails in real-time using advanced AI to keep your inbox safe.
+      </p>
+      <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:2.5rem;">
+        Powered by <span class="text-blue font-bold">Naive Bayes</span> + <span class="text-blue font-bold">NLP</span> Detection
+      </p>
+
+      <!-- CTA Buttons -->
+      <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:3rem;">
+        {% if google_enabled %}
+        <a href="{{ url_for('auth_gmail') }}" class="btn btn-gmail btn-lg">
+          <img src="https://ssl.gstatic.com/ui/v1/icons/mail/rfr/gmail.ico" width="18" height="18" style="vertical-align:middle; margin-right:6px;">
+          Connect Gmail
+        </a>
+        {% endif %}
+        <a href="{{ url_for('manual_email') }}" class="btn btn-ghost btn-lg">
+          ⚡ Try Manual Demo
+        </a>
       </div>
-      <span class="btn-arrow">&#8594;</span>
-    </a>
-    {% else %}
-    <div class="btn-auth disabled">
-      <div class="btn-icon i-gmail" style="opacity:.4">
-        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="rgba(255,255,255,0.4)" d="M12 1C5.93 1 1 5.93 1 12s4.93 11 11 11 11-4.93 11-11S18.07 1 12 1zm1 16h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-      </div>
-      <div class="btn-info">
-        <strong>Continue with Gmail</strong>
-        <span>Set GOOGLE_CLIENT_ID env var to enable OAuth</span>
-      </div>
-      <span class="btn-arrow" style="color:rgba(255,255,255,0.18)">&#10005;</span>
-    </div>
-    {% endif %}
 
-    <div class="auth-divider"></div>
-
-    <a href="/manual" class="btn-auth">
-      <div class="btn-icon i-manual">&#9993;</div>
-      <div class="btn-info">
-        <strong>Analyze Email Manually</strong>
-        <span>No login required &nbsp;&bull;&nbsp; Paste email &nbsp;&bull;&nbsp; Instant prediction</span>
-      </div>
-      <span class="btn-arrow">&#8594;</span>
-    </a>
-
-    <button class="btn-auth demo" onclick="loadDemo()">
-      <div class="btn-icon i-demo">&#9889;</div>
-      <div class="btn-info">
-        <strong>Try Demo Mail</strong>
-        <span>Load sample phishing email &nbsp;&bull;&nbsp; One-click scan</span>
-      </div>
-      <span class="btn-arrow">&#8594;</span>
-    </button>
-
-    <div class="auth-status">
-      <div class="auth-status-dot"></div>
-      AI model active &nbsp;&bull;&nbsp; Session secured &nbsp;&bull;&nbsp; TLS encrypted
-    </div>
-  </div>
-</section>
-
-<!-- STATS BAR -->
-<div class="stats-bar fade-in">
-  <div class="stat-item"><div class="stat-val">5,796</div><div class="stat-label">TRAINING EMAILS</div></div>
-  <div class="stat-item"><div class="stat-val">67.3%</div><div class="stat-label">HAM RATIO</div></div>
-  <div class="stat-item"><div class="stat-val">32.7%</div><div class="stat-label">SPAM DETECTED</div></div>
-  <div class="stat-item"><div class="stat-val">20+</div><div class="stat-label">NLP FEATURES</div></div>
-  <div class="stat-item"><div class="stat-val">98.4%</div><div class="stat-label">MODEL PRECISION</div></div>
-</div>
-
-<!-- ANALYSIS SECTION -->
-<section>
-  <div class="section-header fade-in">
-    <span class="section-tag">Real-time Intelligence</span>
-    <div class="section-title">AI Detection <span>Analysis</span></div>
-  </div>
-  <div class="analysis-grid">
-
-    <!-- Spam Probability Meter -->
-    <div class="analysis-card ac-type-meter fade-in">
-      <div class="ac-label">SPAM PROBABILITY METER</div>
-      <div style="display:flex;justify-content:center;margin:.4rem 0">
-        <svg viewBox="0 0 140 80" width="140" height="80">
-          <defs>
-            <linearGradient id="mG" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#00E87A"/>
-              <stop offset="50%" stop-color="#D4AF37"/>
-              <stop offset="100%" stop-color="#E74C3C"/>
-            </linearGradient>
-          </defs>
-          <path d="M12 72 A58 58 0 0 1 128 72" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="10" stroke-linecap="round"/>
-          <path d="M12 72 A58 58 0 0 1 128 72" fill="none" stroke="url(#mG)" stroke-width="10" stroke-linecap="round" stroke-dasharray="182" stroke-dashoffset="45"/>
-          <text x="70" y="70" text-anchor="middle" font-family="Orbitron,monospace" font-size="16" font-weight="700" fill="#F0EDD6">75%</text>
-        </svg>
-      </div>
-      <div class="ac-sub" style="text-align:center">Confidence score from 20+ extracted NLP features</div>
-    </div>
-
-    <!-- Threat Confidence -->
-    <div class="analysis-card ac-type-conf fade-in">
-      <div class="ac-label">THREAT CONFIDENCE</div>
-      <div class="ac-value" style="color:#00C8FF">87.3<span style="font-size:.85rem;color:var(--text-muted)">%</span></div>
-      <div class="ac-bar-wrap"><div class="ac-bar danger" style="--w:87%"></div></div>
-      <div class="ac-sub">High confidence &mdash; multiple spam signals detected across char, word and header features</div>
-    </div>
-
-    <!-- NLP Keywords (from EDA Section 7 & 11) -->
-    <div class="analysis-card ac-type-nlp fade-in">
-      <div class="ac-label">NLP KEYWORD DETECTION</div>
-      <div class="kw-wrap">
-        <span class="kw-tag kw-spam">FREE</span>
-        <span class="kw-tag kw-spam">CLICK HERE</span>
-        <span class="kw-tag kw-spam">WINNER</span>
-        <span class="kw-tag kw-spam">URGENT</span>
-        <span class="kw-tag kw-spam">$$$</span>
-        <span class="kw-tag kw-spam">MONEY</span>
-        <span class="kw-tag kw-safe">receipt</span>
-        <span class="kw-tag kw-safe">order</span>
-      </div>
-      <div class="ac-sub" style="margin-top:.6rem">Keyword corpus from SpamAssassin vocabulary analysis</div>
-    </div>
-
-    <!-- Sender Trust Score -->
-    <div class="analysis-card ac-type-sender fade-in">
-      <div class="ac-label">SENDER TRUST SCORE</div>
-      <div class="ac-value" style="color:var(--red-eda)">12<span style="font-size:.85rem;color:var(--text-muted)">/100</span></div>
-      <div class="ac-bar-wrap"><div class="ac-bar danger" style="--w:12%"></div></div>
-      <div class="ac-sub">Suspicious domain &nbsp;&bull;&nbsp; No DKIM &nbsp;&bull;&nbsp; SPF failure detected</div>
-    </div>
-
-    <!-- Header Anomaly (from EDA Section 11) -->
-    <div class="analysis-card ac-type-header fade-in">
-      <div class="ac-label">HEADER ANOMALY DETECTION</div>
-      <div style="display:flex;flex-direction:column;gap:.42rem;margin:.5rem 0">
-        <div style="display:flex;justify-content:space-between;font-size:.78rem"><span style="color:var(--text-muted)">HTML content</span><span style="color:var(--red-eda);font-family:'Space Mono',monospace;font-size:.6rem">DETECTED</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:.78rem"><span style="color:var(--text-muted)">Unsubscribe link</span><span style="color:var(--gold);font-family:'Space Mono',monospace;font-size:.6rem">PRESENT</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:.78rem"><span style="color:var(--text-muted)">Uppercase ratio</span><span style="color:var(--orange-phish);font-family:'Space Mono',monospace;font-size:.6rem">HIGH</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:.78rem"><span style="color:var(--text-muted)">URL count</span><span style="color:var(--red-eda);font-family:'Space Mono',monospace;font-size:.6rem">8 FOUND</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:.78rem"><span style="color:var(--text-muted)">Dollar signs ($)</span><span style="color:var(--red-eda);font-family:'Space Mono',monospace;font-size:.6rem">HIGH</span></div>
-      </div>
-    </div>
-
-    <!-- Risk Classification (from EDA Section 12) -->
-    <div class="analysis-card ac-type-risk fade-in">
-      <div class="ac-label">RISK CLASSIFICATION</div>
-      <div style="display:flex;align-items:center;gap:.8rem;margin:.55rem 0">
-        <div style="width:50px;height:50px;border-radius:50%;background:rgba(231,76,60,0.14);border:1.5px solid var(--red-eda);display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0">&#9888;</div>
+      <!-- Stats row -->
+      <div style="display:flex; gap:2rem; padding-top:2rem; border-top:1px solid var(--border);">
         <div>
-          <div style="font-family:'Orbitron',monospace;font-size:.88rem;font-weight:700;color:var(--red-eda);letter-spacing:1px">SPAM</div>
-          <div style="font-size:.7rem;color:var(--text-muted);margin-top:.2rem">NLP classifier &nbsp;&bull;&nbsp; High probability &nbsp;&bull;&nbsp; Ham:Spam ratio 2.06:1</div>
+          <div style="font-family:'Poppins',sans-serif; font-size:1.6rem; font-weight:800; color:var(--blue-light);">99.2%</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Detection Rate</div>
+        </div>
+        <div>
+          <div style="font-family:'Poppins',sans-serif; font-size:1.6rem; font-weight:800; color:var(--blue-light);">&lt;1s</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Analysis Speed</div>
+        </div>
+        <div>
+          <div style="font-family:'Poppins',sans-serif; font-size:1.6rem; font-weight:800; color:var(--blue-light);">0</div>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Data Stored</div>
         </div>
       </div>
-      <div class="ac-bar-wrap"><div class="ac-bar danger" style="--w:87%"></div></div>
-      <div class="ac-sub">Strongest correlators: has_html, has_free, has_money, has_click</div>
+    </div>
+
+    <!-- Right — Hero Shield -->
+    <div style="display:flex; justify-content:center; align-items:center; position:relative; min-height:400px;">
+      <div style="position:absolute; border-radius:50%; border:1px solid rgba(37,99,235,0.2); animation:ringPulse 3s ease-in-out infinite; width:360px; height:360px;"></div>
+      <div style="position:absolute; border-radius:50%; border:1px solid rgba(56,189,248,0.15); animation:ringPulse 3s ease-in-out infinite 1s; width:420px; height:420px;"></div>
+      <div style="position:absolute; border-radius:50%; border:1px solid rgba(37,99,235,0.08); animation:ringPulse 3s ease-in-out infinite 2s; width:480px; height:480px;"></div>
+
+      <!-- Floating badges -->
+      <div style="position:absolute; top:20px; right:30px; animation:floatIcon 4s ease-in-out infinite; opacity:0.85;">
+        <div style="background:var(--blue-glow-soft); border:1px solid var(--border-glow); border-radius:10px; padding:8px 14px; font-size:0.72rem; color:var(--blue-light); font-weight:600; backdrop-filter:blur(6px);">🔒 SAFE</div>
+      </div>
+      <div style="position:absolute; bottom:60px; left:10px; animation:floatIcon 5s ease-in-out infinite 1s; opacity:0.85;">
+        <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.35); border-radius:10px; padding:8px 14px; font-size:0.72rem; color:var(--red); font-weight:600; backdrop-filter:blur(6px);">🚫 SPAM</div>
+      </div>
+      <div style="position:absolute; top:110px; left:0px; animation:floatIcon 6s ease-in-out infinite 2s; opacity:0.75;">
+        <div style="background:var(--blue-glow-soft); border:1px solid var(--border-glow); border-radius:10px; padding:8px 14px; font-size:0.72rem; color:var(--blue-light); font-weight:600; backdrop-filter:blur(6px);">🛡️ Protected</div>
+      </div>
+      <div style="position:absolute; bottom:120px; right:20px; animation:floatIcon 4.5s ease-in-out infinite 0.5s; opacity:0.75;">
+        <div style="background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.3); border-radius:10px; padding:8px 14px; font-size:0.72rem; color:var(--green); font-weight:600; backdrop-filter:blur(6px);">✅ Verified</div>
+      </div>
+
+      <div class="shield-logo-hero" data-logo="shield-hero">
+        
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ FEATURE CARDS ══════════ -->
+<section style="max-width:1200px; margin:0 auto; padding:0 2rem 4rem;">
+
+  <div style="text-align:center; margin-bottom:2.5rem;">
+    <h2 style="font-family:'Poppins',sans-serif; font-weight:800; font-size:1.6rem; margin-bottom:0.5rem;">
+      Why <span style="background:linear-gradient(135deg,#38BDF8,#2563EB); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">Deep Shield?</span>
+    </h2>
+    <p style="color:var(--text-muted); font-size:0.9rem;">Built for security, speed, and privacy</p>
+  </div>
+
+  <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1.25rem;">
+
+    <div class="glass-card" style="text-align:center; padding:2rem 1.5rem; transition:transform 0.2s; cursor:default;">
+      <div style="width:56px; height:56px; border-radius:16px; background:var(--blue-glow-soft); border:1px solid var(--border-glow); display:flex; align-items:center; justify-content:center; font-size:1.6rem; margin:0 auto 1.25rem;">🧠</div>
+      <h3 style="font-family:'Poppins',sans-serif; font-weight:700; margin-bottom:0.5rem; font-size:1rem;">AI Detection</h3>
+      <p class="text-secondary text-sm" style="line-height:1.7;">Advanced Naive Bayes model detects spam, phishing & threats with 99.2% accuracy.</p>
+    </div>
+
+    <div class="glass-card" style="text-align:center; padding:2rem 1.5rem; border-color:var(--border-glow);">
+      <div style="width:56px; height:56px; border-radius:16px; background:var(--blue-glow-soft); border:1px solid var(--border-glow); display:flex; align-items:center; justify-content:center; font-size:1.6rem; margin:0 auto 1.25rem;">⚡</div>
+      <h3 style="font-family:'Poppins',sans-serif; font-weight:700; margin-bottom:0.5rem; font-size:1rem;">Real-time Protection</h3>
+      <p class="text-secondary text-sm" style="line-height:1.7;">Instant scanning keeps your inbox safe from evolving email threats under 1 second.</p>
+      <span style="display:inline-block; margin-top:0.75rem; font-size:0.7rem; font-weight:700; padding:3px 10px; background:var(--blue-glow-soft); border:1px solid var(--border-glow); border-radius:20px; color:var(--blue-light);">⭐ Most Popular</span>
+    </div>
+
+    <div class="glass-card" style="text-align:center; padding:2rem 1.5rem;">
+      <div style="width:56px; height:56px; border-radius:16px; background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.25); display:flex; align-items:center; justify-content:center; font-size:1.6rem; margin:0 auto 1.25rem;">🔒</div>
+      <h3 style="font-family:'Poppins',sans-serif; font-weight:700; margin-bottom:0.5rem; font-size:1rem;">Secure & Private</h3>
+      <p class="text-secondary text-sm" style="line-height:1.7;">Your emails are 100% private — zero data stored, zero sharing, ever.</p>
     </div>
 
   </div>
 </section>
 
-<!-- FEATURES SECTION -->
-<section style="background:rgba(6,6,18,0.55)">
-  <div class="section-header fade-in">
-    <span class="section-tag">Capabilities</span>
-    <div class="section-title">Intelligent <span>Protection Stack</span></div>
+<!-- ══════════ LIVE THREAT PREVIEW ══════════ -->
+<section style="max-width:1200px; margin:0 auto; padding:0 2rem 6rem;">
+
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+    <div>
+      <h2 style="font-family:'Poppins',sans-serif; font-weight:700; font-size:1.2rem; margin-bottom:0.25rem;">
+        Live Email Threat Preview
+      </h2>
+      <p style="font-size:0.8rem; color:var(--text-muted);">See how Deep Shield classifies real-world emails</p>
+    </div>
+    <a href="{{ url_for('manual_email') }}" class="btn btn-primary" style="font-size:0.8rem;">Try It Yourself →</a>
   </div>
-  <div class="features-grid">
 
-    <div class="feat-card fade-in">
-      <div class="feat-badge">CORE</div>
-      <span class="feat-icon i-nlp">&#129504;</span>
-      <div class="feat-title">NLP ANALYSIS</div>
-      <div class="feat-desc">Advanced natural language processing extracts 20+ features — word frequency, vocabulary uniqueness ratio, avg word length, and character-level patterns from email content.</div>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.25rem;">
+
+    <!-- SAFE -->
+    <div style="background:rgba(34,197,94,0.05); border:1px solid rgba(34,197,94,0.25); border-radius:var(--radius); padding:1.5rem; position:relative; overflow:hidden;">
+      <div style="position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg, rgba(34,197,94,0.6), rgba(34,197,94,0.1));"></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <span style="font-size:0.7rem; font-weight:700; letter-spacing:0.1em; color:var(--text-muted); text-transform:uppercase;">Safe Email Example</span>
+        <span class="badge badge-safe">✅ SAFE</span>
+      </div>
+      <div style="font-size:0.82rem; color:var(--text-secondary); line-height:1.7;">
+        <div style="margin-bottom:2px;"><span class="text-muted">From:</span> hr@company.com</div>
+        <div style="margin-bottom:2px;"><span class="text-muted">To:</span> you@gmail.com</div>
+        <div style="margin-bottom:2px;"><span class="text-muted">Subject:</span> Interview Invitation — Software Developer</div>
+        <div class="divider" style="margin:0.75rem 0;"></div>
+        <div style="color:var(--text-secondary); font-style:italic;">"We are pleased to invite you for an interview... Looking forward to meeting you."</div>
+      </div>
+      <!-- Confidence bar -->
+      <div style="margin-top:1rem;">
+        <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:var(--text-muted); margin-bottom:4px;">
+          <span>Confidence Score</span><span style="color:var(--green); font-weight:700;">96%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill green" style="width:96%;"></div>
+        </div>
+      </div>
     </div>
 
-    <div class="feat-card fade-in">
-      <div class="feat-badge">INSPECT</div>
-      <span class="feat-icon i-header">&#128225;</span>
-      <div class="feat-title">HEADER INSPECTION</div>
-      <div class="feat-desc">Detects HTML injection, unsubscribe manipulation, dollar signs, URL flooding, uppercase abuse, and sender spoofing patterns from the email header and metadata.</div>
-    </div>
-
-    <div class="feat-card fade-in">
-      <div class="feat-badge">LIVE</div>
-      <span class="feat-icon i-realtime">&#9889;</span>
-      <div class="feat-title">REAL-TIME SCORING</div>
-      <div class="feat-desc">Sub-second inference via PredictionPipeline delivers spam probability score with confidence percentage. Supports single email and bulk /api/scan endpoint.</div>
-    </div>
-
-    <div class="feat-card fade-in">
-      <div class="feat-badge">INFRA</div>
-      <span class="feat-icon i-cloud">&#9729;</span>
-      <div class="feat-title">CLOUD DEPLOYMENT</div>
-      <div class="feat-desc">Flask app with ProxyFix for AWS load balancers. OAuth 2.0 PKCE flow with OAUTHLIB_RELAX_TOKEN_SCOPE. Production-ready session management and TLS support.</div>
-    </div>
-
-    <div class="feat-card fade-in">
-      <div class="feat-badge">INTEL</div>
-      <span class="feat-icon i-threat">&#127919;</span>
-      <div class="feat-title">THREAT INTELLIGENCE</div>
-      <div class="feat-desc">Trained on SpamAssassin 5,796-email corpus. Identifies FREE, WINNER, URGENT, MONEY, CLICK signals. Ham:Spam ratio 2.06:1 with correlation-backed feature weights.</div>
-    </div>
-
-    <div class="feat-card fade-in">
-      <div class="feat-badge">DETECT</div>
-      <span class="feat-icon i-malware">&#128737;</span>
-      <div class="feat-title">MALWARE DETECTION</div>
-      <div class="feat-desc">Multi-class risk output separates Safe, Spam, Phishing, and Malware with per-class confidence scores. Visual threat indicators adapt color to risk severity level.</div>
-    </div>
-
-  </div>
-</section>
-
-<!-- PREDICTION RESULTS -->
-<section>
-  <div class="section-header fade-in">
-    <span class="section-tag">Classification Output</span>
-    <div class="section-title">Prediction <span>Result Cards</span></div>
-  </div>
-  <div class="results-grid">
-
-    <div class="result-card r-safe fade-in">
-      <div class="rc-glow"></div>
-      <span class="rc-icon">&#9989;</span>
-      <div class="rc-label">SAFE</div>
-      <div class="rc-conf">98.2%<span class="rc-conf-label">CONFIDENCE</span></div>
-      <div class="rc-desc">Legitimate email. No threat signals detected. Safe for inbox delivery.</div>
-    </div>
-
-    <div class="result-card r-spam fade-in">
-      <div class="rc-glow"></div>
-      <span class="rc-icon">&#9888;&#65039;</span>
-      <div class="rc-label">SPAM</div>
-      <div class="rc-conf">87.4%<span class="rc-conf-label">CONFIDENCE</span></div>
-      <div class="rc-desc">Unsolicited bulk email. High frequency of marketing spam signals detected.</div>
-    </div>
-
-    <div class="result-card r-phish fade-in">
-      <div class="rc-glow"></div>
-      <span class="rc-icon">&#127907;</span>
-      <div class="rc-label">PHISHING</div>
-      <div class="rc-conf">94.1%<span class="rc-conf-label">CONFIDENCE</span></div>
-      <div class="rc-desc">Credential harvesting attempt. Suspicious links and impersonation patterns found.</div>
-    </div>
-
-    <div class="result-card r-malware fade-in">
-      <div class="rc-glow"></div>
-      <span class="rc-icon">&#129440;</span>
-      <div class="rc-label">MALWARE</div>
-      <div class="rc-conf">91.7%<span class="rc-conf-label">CONFIDENCE</span></div>
-      <div class="rc-desc">Malicious payload detected. Dangerous attachments or drive-by download links.</div>
+    <!-- SPAM -->
+    <div style="background:rgba(239,68,68,0.05); border:1px solid rgba(239,68,68,0.25); border-radius:var(--radius); padding:1.5rem; position:relative; overflow:hidden;">
+      <div style="position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg, rgba(239,68,68,0.6), rgba(239,68,68,0.1));"></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <span style="font-size:0.7rem; font-weight:700; letter-spacing:0.1em; color:var(--text-muted); text-transform:uppercase;">Spam Email Example</span>
+        <span class="badge badge-spam">🚫 SPAM</span>
+      </div>
+      <div style="font-size:0.82rem; color:var(--text-secondary); line-height:1.7;">
+        <div style="margin-bottom:2px;"><span class="text-muted">From:</span> lottery@win-cash-now.com</div>
+        <div style="margin-bottom:2px;"><span class="text-muted">To:</span> you@gmail.com</div>
+        <div style="margin-bottom:2px;"><span class="text-muted">Subject:</span> You Won $10,000! Claim Now</div>
+        <div class="divider" style="margin:0.75rem 0;"></div>
+        <div style="color:var(--text-secondary); font-style:italic;">"Congratulations! You have been SELECTED to win $10,000 cash prize. Click here NOW!!"</div>
+      </div>
+      <!-- Confidence bar -->
+      <div style="margin-top:1rem;">
+        <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:var(--text-muted); margin-bottom:4px;">
+          <span>Threat Score</span><span style="color:var(--red); font-weight:700;">98%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill red" style="width:98%;"></div>
+        </div>
+      </div>
     </div>
 
   </div>
 </section>
 
-<!-- FOOTER -->
-<footer>
-  <div class="footer-logo">&#9876; DEEP SHIELD MAIL</div>
-  <p>AI-POWERED EMAIL PROTECTION &nbsp;&bull;&nbsp; FLASK + NLP PIPELINE &nbsp;&bull;&nbsp; SPAMASSASSIN TRAINED</p>
-</footer>
-
-</div>
-
-<!-- ════════════════════ SCRIPTS ════════════════════ -->
-<script>
-/* Custom cursor */
-var cur=document.getElementById('cursor'),ring=document.getElementById('cursor-ring');
-var mx=0,my=0,rx=0,ry=0;
-document.addEventListener('mousemove',function(e){
-  mx=e.clientX;my=e.clientY;
-  cur.style.left=mx+'px';cur.style.top=my+'px';
-});
-(function animRing(){
-  rx+=(mx-rx)*0.11;ry+=(my-ry)*0.11;
-  ring.style.left=rx+'px';ring.style.top=ry+'px';
-  requestAnimationFrame(animRing);
-})();
-document.querySelectorAll('a,button').forEach(function(el){
-  el.addEventListener('mouseenter',function(){cur.style.width='14px';cur.style.height='14px';ring.style.width='44px';ring.style.height='44px'});
-  el.addEventListener('mouseleave',function(){cur.style.width='8px';cur.style.height='8px';ring.style.width='32px';ring.style.height='32px'});
-});
-
-/* Particle system */
-var canvas=document.getElementById('particle-canvas');
-var ctx=canvas.getContext('2d');
-var W,H,parts=[];
-function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;}
-resize();
-window.addEventListener('resize',resize);
-
-function Particle(){this.reset();}
-Particle.prototype.reset=function(){
-  this.x=Math.random()*W;this.y=Math.random()*H;
-  this.size=Math.random()*1.6+0.3;
-  this.vx=(Math.random()-0.5)*0.28;this.vy=(Math.random()-0.5)*0.28;
-  this.life=Math.random()*180+80;this.maxLife=this.life;
-  var r=Math.random();
-  this.type=r<0.55?'gold':r<0.8?'blue':'white';
-};
-Particle.prototype.update=function(){
-  this.x+=this.vx;this.y+=this.vy;this.life--;
-  if(this.life<=0||this.x<-10||this.x>W+10||this.y<-10||this.y>H+10)this.reset();
-};
-Particle.prototype.draw=function(){
-  var a=(this.life/this.maxLife)*0.65;
-  var c;
-  if(this.type==='gold')c='rgba(212,175,55,'+a+')';
-  else if(this.type==='blue')c='rgba(46,134,193,'+(a*0.5)+')';
-  else c='rgba(255,255,255,'+(a*0.25)+')';
-  ctx.beginPath();ctx.arc(this.x,this.y,this.size,0,Math.PI*2);
-  ctx.fillStyle=c;ctx.fill();
-};
-
-for(var i=0;i<150;i++)parts.push(new Particle());
-
-var mouseGlow={x:W/2,y:H/2,active:false};
-document.addEventListener('mousemove',function(e){mouseGlow.x=e.clientX;mouseGlow.y=e.clientY;mouseGlow.active=true;});
-
-function animate(){
-  ctx.clearRect(0,0,W,H);
-  if(mouseGlow.active){
-    var g=ctx.createRadialGradient(mouseGlow.x,mouseGlow.y,0,mouseGlow.x,mouseGlow.y,200);
-    g.addColorStop(0,'rgba(212,175,55,0.035)');g.addColorStop(1,'transparent');
-    ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  }
-  for(var i=0;i<parts.length;i++){
-    parts[i].update();parts[i].draw();
-    for(var j=i+1;j<parts.length;j++){
-      var dx=parts[i].x-parts[j].x,dy=parts[i].y-parts[j].y;
-      var d=Math.sqrt(dx*dx+dy*dy);
-      if(d<75){
-        ctx.beginPath();ctx.moveTo(parts[i].x,parts[i].y);
-        ctx.lineTo(parts[j].x,parts[j].y);
-        ctx.strokeStyle='rgba(212,175,55,'+(0.055*(1-d/75))+')';
-        ctx.lineWidth=0.4;ctx.stroke();
-      }
-    }
-  }
-  requestAnimationFrame(animate);
+<style>
+@keyframes ringPulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50%       { transform: scale(1.04); opacity: 1; }
 }
-animate();
-
-/* Scroll reveal */
-var obs=new IntersectionObserver(function(entries){
-  entries.forEach(function(e){if(e.isIntersecting)e.target.classList.add('visible');});
-},{threshold:0.1});
-document.querySelectorAll('.fade-in').forEach(function(el){obs.observe(el);});
-
-/* Demo button — loads a sample phishing email into manual page */
-function loadDemo(){
-  var demo=[
-    'From: prize-winner@mega-lottery-intl.xyz',
-    'To: you@example.com',
-    'Subject: YOU HAVE WON $1,000,000 — URGENT ACTION REQUIRED!!!',
-    'Date: Mon, 25 May 2026 09:00:00 +0000',
-    '',
-    'CONGRATULATIONS!!! You have been selected as the WINNER of our MEGA LOTTERY draw.',
-    '',
-    'You have WON the sum of ONE MILLION DOLLARS ($1,000,000.00 USD) FREE!',
-    '',
-    'CLICK HERE IMMEDIATELY to claim your prize: http://mega-lottery-claim.xyz/winner',
-    '',
-    'This is URGENT — you must respond within 24 HOURS or your prize will be forfeited.',
-    '',
-    'Send your full name, bank account details and SSN to claim MONEY now.',
-    '',
-    'UNSUBSCRIBE: http://mega-lottery-claim.xyz/unsub'
-  ].join('\n');
-  sessionStorage.setItem('demo_email',demo);
-  window.location.href='/manual?demo=1';
+@keyframes floatIcon {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-8px); }
 }
-</script>
-</body>
-</html>
+.glass-card:hover {
+  transform: translateY(-3px);
+  transition: transform 0.25s ease;
+}
+</style>
+
+{% endblock %}

@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Connect Gmail — Deep Shield Mail{% endblock %}
+
+{% block content %}
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <a href="{{ url_for('index') }}" class="nav-brand">
+    <div class="nav-logo-wrap" data-logo="shield-sm"></div>
+    <span class="nav-brand-name">Deep Shield Mail</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="{{ url_for('index') }}">Home</a></li>
+    <li><a href="{{ url_for('manual_email') }}">Manual Demo</a></li>
+  </ul>
+</nav>
+
+<main style="min-height:calc(100vh - 64px); display:flex; align-items:center; justify-content:center; padding:2rem;">
+
+  <div style="width:100%; max-width:420px;">
+
+    <!-- Logo centered -->
+    <div style="text-align:center; margin-bottom:2rem;">
+      <div style="display:inline-block; animation:heroFloat 6s ease-in-out infinite; filter:drop-shadow(0 0 30px rgba(37,99,235,0.6));">
+        <div data-logo="shield-hero" style="width:100px; height:100px;"></div>
+      </div>
+      <h2 style="font-family:'Poppins',sans-serif; font-weight:800; font-size:1.4rem; margin-top:1rem; margin-bottom:0.25rem;">Deep Shield Mail</h2>
+      <p class="text-secondary text-sm">Connect your Gmail and start securing your inbox</p>
+    </div>
+
+    <!-- Card -->
+    <div class="glass-card" style="padding:2rem; text-align:center;">
+
+      <!-- Gmail logo -->
+      <div style="margin-bottom:1.5rem;">
+        <svg width="64" height="64" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+          <rect width="48" height="48" rx="8" fill="#fff"/>
+          <path d="M6 12h36v24a2 2 0 01-2 2H8a2 2 0 01-2-2V12z" fill="#f1f3f4"/>
+          <path d="M6 12l18 15L42 12" fill="none" stroke="#EA4335" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M6 12h36" stroke="#DADCE0" stroke-width="0.5" fill="none"/>
+          <path d="M6 36l13-13" stroke="#34A853" stroke-width="2" fill="none"/>
+          <path d="M42 36L29 23" stroke="#4285F4" stroke-width="2" fill="none"/>
+        </svg>
+      </div>
+
+      <h3 style="font-family:'Poppins',sans-serif; font-weight:700; font-size:1.1rem; margin-bottom:0.5rem;">Connect with Gmail</h3>
+      <p class="text-secondary text-sm" style="margin-bottom:1.75rem; line-height:1.6;">
+        We only read your emails to analyze threats.<br>Your data is private and secure.
+      </p>
+
+      <!-- Connect button -->
+      <a href="{{ url_for('auth_gmail') }}" class="btn btn-gmail btn-lg btn-full" style="margin-bottom:1rem; justify-content:center; font-size:1rem; padding:14px 24px; gap:12px;">
+        <svg width="22" height="22" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+          <rect width="48" height="48" rx="4" fill="#fff"/>
+          <path d="M6 12h36v24a2 2 0 01-2 2H8a2 2 0 01-2-2V12z" fill="#f1f3f4"/>
+          <path d="M6 12l18 15L42 12" fill="none" stroke="#EA4335" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M6 36l13-13" stroke="#34A853" stroke-width="1.5" fill="none"/>
+          <path d="M42 36L29 23" stroke="#4285F4" stroke-width="1.5" fill="none"/>
+        </svg>
+        Connect with Gmail
+      </a>
+
+      <div class="divider"></div>
+
+      <!-- Privacy note -->
+      <div style="display:flex; align-items:flex-start; gap:10px; text-align:left; margin-bottom:1rem;">
+        <span style="font-size:1rem; flex-shrink:0;">🔒</span>
+        <p class="text-xs text-muted" style="line-height:1.6;">
+          We request read-only access to your Gmail inbox. We never store, sell, or share your emails. Analysis is done in real-time.
+        </p>
+      </div>
+
+      <div style="font-size:0.75rem; color:var(--text-muted);">
+        By connecting, you agree to our
+        <span class="text-blue" style="cursor:pointer;">Privacy Policy</span> and
+        <span class="text-blue" style="cursor:pointer;">Terms of Service</span>.
+      </div>
+    </div>
+
+    <!-- Manual demo link -->
+    <div style="text-align:center; margin-top:1.25rem;">
+      <span class="text-secondary text-sm">No Gmail? </span>
+      <a href="{{ url_for('manual_email') }}" class="text-blue text-sm" style="text-decoration:none; font-weight:600;">Try Manual Demo →</a>
+    </div>
+
+  </div>
+</main>
+
+<style>
+@keyframes heroFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%       { transform: translateY(-10px) scale(1.04); }
+}
+</style>
+
+{% endblock %}
