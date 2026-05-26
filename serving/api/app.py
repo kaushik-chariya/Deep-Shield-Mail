@@ -2,7 +2,6 @@
 Deep Shield Mail — Flask App
 Supports: Gmail OAuth2 · Manual Paste
 """
-from google_auth_oauthlib.flow import Flow
 import os, sys, traceback, json, hashlib
 from functools import wraps
 from pathlib import Path
@@ -27,9 +26,11 @@ try:
     from google_auth_oauthlib.flow import Flow
     from googleapiclient.discovery import build
     import google.oauth2.credentials
+    from google.auth.transport.requests import Request   # ✅ Token refresh ke liye
     GOOGLE_AVAILABLE = True
 except ImportError:
     GOOGLE_AVAILABLE = False
+
 
 # ═══════════════════════════════════════════════════════════════
 # App setup
@@ -45,7 +46,7 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-change-in-prod")
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.config["SESSION_COOKIE_SECURE"] = False
+app.config["SESSION_COOKIE_SECURE"]   = True    # ✅ HTTPS pe Secure flag zaroori
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 
 os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
@@ -203,7 +204,8 @@ def auth_gmail_callback():
         "token_uri"    : creds.token_uri,
         "client_id"    : creds.client_id,
         "client_secret": creds.client_secret,
-        "scopes"       : creds.scopes,
+        # ✅ frozenset JSON serializable nahi — list mein convert karo
+        "scopes"       : list(creds.scopes) if creds.scopes else [],
     }
 
     service = build("gmail", "v1", credentials=creds)
@@ -365,7 +367,7 @@ def api_scan():
         "ham_count" : len(results) - spam_count,
     }
 
-    # ✅ Full results /tmp file mein save karo (session cookie overflow avoid)
+    # Full results /tmp file mein save karo (session cookie overflow avoid)
     scan_file = get_scan_file_path()
     with open(scan_file, "w") as sf:
         json.dump(scan_data, sf)
@@ -376,7 +378,7 @@ def api_scan():
         "total"     : scan_data["total"],
         "spam_count": scan_data["spam_count"],
         "ham_count" : scan_data["ham_count"],
-        "results"   : results[:5],  # dashboard ke liye sirf 5
+        "results"   : results[:5],
     }
     session.modified = True
 
@@ -384,18 +386,33 @@ def api_scan():
 
 
 # ═══════════════════════════════════════════════════════════════
-# Gmail Fetcher
+# Gmail Fetcher — with token refresh
 # ═══════════════════════════════════════════════════════════════
 
 def _fetch_gmail(page: int, limit: int) -> list[dict]:
     token_data = session["google_token"]
-    creds      = google.oauth2.credentials.Credentials(**token_data)
-    service    = build("gmail", "v1", credentials=creds)
+    creds = google.oauth2.credentials.Credentials(
+        token         = token_data["token"],
+        refresh_token = token_data.get("refresh_token"),
+        token_uri     = token_data.get("token_uri"),
+        client_id     = token_data.get("client_id"),
+        client_secret = token_data.get("client_secret"),
+        scopes        = token_data.get("scopes"),
+    )
+
+    # ✅ Token expire ho gaya toh refresh karo
+    if creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        session["google_token"]["token"] = creds.token
+        session.modified = True
+
+    service = build("gmail", "v1", credentials=creds)
 
     results = service.users().messages().list(
-        userId="me", labelIds=["INBOX"],
-        maxResults=limit,
-        pageToken=session.get("gmail_page_token") if page > 1 else None,
+        userId    = "me",
+        labelIds  = ["INBOX"],
+        maxResults= limit,
+        pageToken = session.get("gmail_page_token") if page > 1 else None,
     ).execute()
 
     if page == 1:
@@ -412,7 +429,6 @@ def _fetch_gmail(page: int, limit: int) -> list[dict]:
         ).execute()
         headers = {h["name"]: h["value"] for h in msg_data["payload"].get("headers", [])}
         snippet = msg_data.get("snippet", "")
-
         raw = (
             f"From: {headers.get('From','')}\n"
             f"To: {headers.get('To','')}\n"
@@ -432,18 +448,41 @@ def _fetch_gmail(page: int, limit: int) -> list[dict]:
 
 
 # ═══════════════════════════════════════════════════════════════
-# Logout
+# Logout — ✅ properly session clear + scan file delete
 # ═══════════════════════════════════════════════════════════════
 
 @app.route("/logout")
 def logout():
-    # Scan file bhi delete karo
+    # Scan file delete karo
     scan_file = session.get("scan_file")
     if scan_file and os.path.exists(scan_file):
-        os.remove(scan_file)
+        try:
+            os.remove(scan_file)
+        except Exception:
+            pass
+
+    # ✅ Google token revoke karo (optional but good practice)
+    token = session.get("google_token", {}).get("token")
+    if token:
+        try:
+            import requests as req
+            req.post(
+                "https://oauth2.googleapis.com/revoke",
+                params={"token": token},
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                timeout=3,
+            )
+        except Exception:
+            pass  # revoke fail ho toh bhi logout continue karo
+
+    # Session poora clear karo
     session.clear()
-    flash("Disconnected successfully.", "info")
-    return redirect(url_for("index"))
+
+    response = redirect(url_for("index"))
+    # ✅ Cookie forcefully delete karo browser se bhi
+    response.delete_cookie("session")
+    flash("Logged out successfully.", "info")
+    return response
 
 
 # ═════════════════════════════════════════════════════════════════
