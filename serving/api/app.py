@@ -3,7 +3,7 @@ Deep Shield Mail — Flask App
 Supports: Gmail OAuth2 · Manual Paste
 """
 from google_auth_oauthlib.flow import Flow
-import os, sys, traceback
+import os, sys, traceback, json
 from functools import wraps
 from pathlib import Path
 
@@ -41,7 +41,6 @@ app = Flask(
     static_folder=str(ROOT / "static"),
 )
 
-# ✅ Fix: Trust load balancer headers so url_for() generates correct external URL
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-change-in-prod")
@@ -49,7 +48,6 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = False
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 
-# Allow HTTP for local dev (remove in production)
 os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
 os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
 
@@ -64,7 +62,7 @@ def get_pipeline() -> PredictionPipeline:
 
 
 # ═══════════════════════════════════════════════════════════════
-# OAuth Config  (set via env vars or .env)
+# OAuth Config
 # ═══════════════════════════════════════════════════════════════
 
 GOOGLE_CLIENT_ID     = os.getenv("GOOGLE_CLIENT_ID", "")
@@ -77,7 +75,6 @@ GOOGLE_SCOPES        = [
 
 # ═══════════════════════════════════════════════════════════════
 # Helper — resolve redirect URI
-# ✅ Uses REDIRECT_URI env var on AWS, falls back to url_for() locally
 # ═══════════════════════════════════════════════════════════════
 
 def get_redirect_uri() -> str:
@@ -105,13 +102,11 @@ def login_required(f):
 # Routes
 # ═══════════════════════════════════════════════════════════════
 
-# ── Health check (used by CI / load-balancers) ──────────────────
 @app.route("/health")
 def health():
     return jsonify({"status": "ok"}), 200
 
 
-# ── Landing ─────────────────────────────────────────────────────
 @app.route("/")
 def index():
     return render_template(
@@ -133,8 +128,7 @@ def auth_gmail():
         flash("GOOGLE_CLIENT_ID not set in environment.", "danger")
         return redirect(url_for("index"))
 
-    redirect_uri = get_redirect_uri()  # ✅ Fixed
-
+    redirect_uri = get_redirect_uri()
     client_config = {
         "web": {
             "client_id"    : GOOGLE_CLIENT_ID,
@@ -145,7 +139,7 @@ def auth_gmail():
         }
     }
     flow = Flow.from_client_config(client_config, scopes=GOOGLE_SCOPES)
-    flow.redirect_uri = redirect_uri  # ✅ Fixed
+    flow.redirect_uri = redirect_uri
 
     auth_url, state = flow.authorization_url(
         access_type="offline",
@@ -165,8 +159,7 @@ def auth_gmail_callback():
         flash("Session expired. Please try again.", "danger")
         return redirect(url_for("index"))
 
-    redirect_uri = get_redirect_uri()  # ✅ Fixed
-
+    redirect_uri = get_redirect_uri()
     client_config = {
         "web": {
             "client_id"    : GOOGLE_CLIENT_ID,
@@ -177,7 +170,7 @@ def auth_gmail_callback():
         }
     }
     flow = Flow.from_client_config(client_config, scopes=GOOGLE_SCOPES, state=state)
-    flow.redirect_uri = redirect_uri  # ✅ Fixed
+    flow.redirect_uri = redirect_uri
 
     flow.fetch_token(
         authorization_response=request.url,
@@ -226,18 +219,79 @@ def api_predict_manual():
 
 
 # ═══════════════════════════════════════════════════════════════
-# Inbox  (Gmail only)
+# Dashboard — Stats Overview
 # ═══════════════════════════════════════════════════════════════
 
 @app.route("/inbox")
 @login_required
 def inbox():
+    scan_results = session.get("scan_results", {})
     return render_template(
         "dashboard.html",
         user_email=session.get("user_email"),
         provider=session.get("provider"),
+        scan_results=scan_results,
     )
 
+
+# ═══════════════════════════════════════════════════════════════
+# Inbox Emails — Separate Page
+# ═══════════════════════════════════════════════════════════════
+
+@app.route("/inbox/emails")
+@login_required
+def inbox_emails():
+    scan_results = session.get("scan_results", {})
+    emails = scan_results.get("results", [])
+    return render_template(
+        "emails.html",
+        user_email=session.get("user_email"),
+        emails=emails,
+        total=scan_results.get("total", 0),
+        spam_count=scan_results.get("spam_count", 0),
+        ham_count=scan_results.get("ham_count", 0),
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Threat History — Separate Page
+# ═══════════════════════════════════════════════════════════════
+
+@app.route("/inbox/history")
+@login_required
+def inbox_history():
+    scan_results = session.get("scan_results", {})
+    emails = scan_results.get("results", [])
+    return render_template(
+        "history.html",
+        user_email=session.get("user_email"),
+        emails=emails,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Email Detail — Full Email View
+# ═══════════════════════════════════════════════════════════════
+
+@app.route("/email/<email_id>")
+@login_required
+def email_detail(email_id):
+    scan_results = session.get("scan_results", {})
+    emails = scan_results.get("results", [])
+    email = next((e for e in emails if e.get("id") == email_id), None)
+    if not email:
+        flash("Email not found. Please scan your inbox first.", "warning")
+        return redirect(url_for("inbox_history"))
+    return render_template(
+        "email_detail.html",
+        user_email=session.get("user_email"),
+        email=email,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# API — Emails & Scan (stores results in session)
+# ═══════════════════════════════════════════════════════════════
 
 @app.route("/api/emails")
 @login_required
@@ -286,12 +340,18 @@ def api_scan():
                             "probability": 0.0, "error": str(e)})
 
     spam_count = sum(1 for r in results if r.get("prediction") == 1)
-    return jsonify({
+    scan_data = {
         "results"   : results,
         "total"     : len(results),
         "spam_count": spam_count,
         "ham_count" : len(results) - spam_count,
-    })
+    }
+
+    # ✅ Store scan results in session so all pages can access them
+    session["scan_results"] = scan_data
+    session.modified = True
+
+    return jsonify(scan_data)
 
 
 # ═══════════════════════════════════════════════════════════════

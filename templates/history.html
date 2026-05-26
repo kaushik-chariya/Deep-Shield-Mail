@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Threat History — Deep Shield Mail{% endblock %}
+
+{% block content %}
+<div class="dashboard-layout">
+
+  <!-- ══ SIDEBAR ══ -->
+  <aside class="sidebar">
+    <a href="{{ url_for('index') }}" class="sidebar-brand">
+      <div data-logo="shield-sm"></div>
+      <span class="nav-brand-name">Deep Shield Mail</span>
+    </a>
+
+    {% if user_email %}
+    <div style="padding:0.75rem 0.5rem; margin-bottom:0.75rem; border-bottom:1px solid var(--border-subtle);">
+      <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:3px;">Connected as</div>
+      <div style="font-size:0.8rem; color:var(--blue-light); font-weight:600; word-break:break-all;">{{ user_email }}</div>
+    </div>
+    {% endif %}
+
+    <nav class="sidebar-nav">
+      <a href="{{ url_for('inbox') }}" class="sidebar-link">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+        </svg>
+        Dashboard
+      </a>
+      <a href="{{ url_for('inbox_emails') }}" class="sidebar-link">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0H4"/>
+        </svg>
+        Inbox Analysis
+      </a>
+      <a href="{{ url_for('inbox_history') }}" class="sidebar-link active">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+        </svg>
+        Threat History
+      </a>
+    </nav>
+
+    <div class="sidebar-logout">
+      <a href="{{ url_for('logout') }}" class="sidebar-link" style="color:var(--red);">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+        Logout
+      </a>
+    </div>
+  </aside>
+
+  <!-- ══ MAIN ══ -->
+  <main class="main-content">
+
+    <!-- Header -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.75rem;">
+      <div>
+        <h1 style="font-family:'Poppins',sans-serif; font-weight:800; font-size:1.5rem; margin-bottom:2px;">Threat History</h1>
+        <p class="text-secondary text-sm">Click any email to view full details</p>
+      </div>
+      <input type="text" class="input-field" placeholder="🔍 Search emails..."
+        id="historySearch" style="width:220px; padding:6px 12px;" oninput="searchHistory(this.value)"/>
+    </div>
+
+    {% if not emails %}
+    <!-- Empty state -->
+    <div class="glass-card" style="padding:3rem; text-align:center;">
+      <div style="font-size:3rem; margin-bottom:1rem;">🔍</div>
+      <h3 style="font-family:'Poppins',sans-serif; font-weight:700; margin-bottom:0.5rem;">No threat history yet</h3>
+      <p class="text-muted text-sm" style="margin-bottom:1.5rem;">Scan your inbox to see threat analysis history.</p>
+      <a href="{{ url_for('inbox') }}" class="btn btn-primary">Go to Dashboard</a>
+    </div>
+
+    {% else %}
+
+    <div class="glass-card" style="padding:1.25rem;">
+      <div style="overflow-x:auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Sender</th>
+              <th>Subject</th>
+              <th>Status</th>
+              <th>Threat Score</th>
+              <th>Date & Time</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            {% for email in emails %}
+            <tr data-search="{{ (email.from ~ ' ' ~ email.subject)|lower }}"
+                style="cursor:pointer; transition:background 0.15s;"
+                onmouseover="this.style.background='rgba(255,255,255,0.03)'"
+                onmouseout="this.style.background=''">
+              <td class="truncate" style="max-width:150px;" title="{{ email.from }}">
+                {{ email.from or '—' }}
+              </td>
+              <td class="truncate" style="max-width:220px;" title="{{ email.subject }}">
+                {{ email.subject or '(no subject)' }}
+              </td>
+              <td>
+                {% if email.prediction == 1 %}
+                  <span class="badge badge-spam">SPAM</span>
+                {% else %}
+                  <span class="badge badge-safe">SAFE</span>
+                {% endif %}
+              </td>
+              <td>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <div style="flex:1; height:4px; background:rgba(255,255,255,0.1); border-radius:2px; min-width:60px;">
+                    <div style="height:4px; border-radius:2px; width:{{ (email.probability * 100)|int }}%;
+                      background:{{ 'var(--red)' if email.prediction == 1 else 'var(--green)' }};"></div>
+                  </div>
+                  <span style="color:{{ 'var(--red)' if email.prediction == 1 else 'var(--green)' }}; font-size:0.8rem; min-width:32px;">
+                    {{ (email.probability * 100)|int }}%
+                  </span>
+                </div>
+              </td>
+              <td class="text-xs text-muted">{{ email.date or '—' }}</td>
+              <td>
+                <a href="{{ url_for('email_detail', email_id=email.id) }}"
+                   class="btn btn-sm btn-ghost" style="padding:4px 10px; font-size:0.75rem;">
+                  View →
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+  </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function searchHistory(q) {
+    const lower = q.toLowerCase();
+    document.querySelectorAll('#historyBody tr').forEach(row => {
+      row.style.display = (row.dataset.search || '').includes(lower) ? '' : 'none';
+    });
+  }
+
+  // Make entire row clickable
+  document.querySelectorAll('#historyBody tr').forEach(row => {
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('a')) return; // let the button handle itself
+      const link = row.querySelector('a');
+      if (link) window.location.href = link.href;
+    });
+  });
+</script>
+{% endblock %}

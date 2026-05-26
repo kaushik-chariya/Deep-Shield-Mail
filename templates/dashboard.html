@@ -6,7 +6,6 @@
 {% endblock %}
 
 {% block content %}
-
 <div class="dashboard-layout">
 
   <!-- ══ SIDEBAR ══ -->
@@ -30,13 +29,13 @@
         </svg>
         Dashboard
       </a>
-      <a href="{{ url_for('inbox') }}#inbox" class="sidebar-link">
+      <a href="{{ url_for('inbox_emails') }}" class="sidebar-link">
         <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0H4"/>
         </svg>
         Inbox Analysis
       </a>
-      <a href="{{ url_for('inbox') }}#history" class="sidebar-link">
+      <a href="{{ url_for('inbox_history') }}" class="sidebar-link">
         <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
         </svg>
@@ -73,30 +72,50 @@
     </div>
 
     <!-- Stat Cards -->
-    <div class="stats-grid" id="statsGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem;">
+    <div class="stats-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem;">
       <div class="stat-card green">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:0.5rem;">
           <div style="width:36px; height:36px; background:rgba(34,197,94,0.15); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1.1rem;">✅</div>
           <span class="text-secondary text-sm font-bold">Safe Emails</span>
         </div>
-        <div class="stat-value text-green" id="safeCount" data-count="0">0</div>
-        <div class="text-xs text-muted mt-1" id="safeLabel">Scan your inbox to see results</div>
+        <div class="stat-value text-green" id="safeCount">{{ scan_results.ham_count if scan_results else 0 }}</div>
+        <div class="text-xs text-muted mt-1" id="safeLabel">
+          {% if scan_results %}Last scan: {{ scan_results.ham_count }} safe of {{ scan_results.total }}{% else %}Scan your inbox to see results{% endif %}
+        </div>
       </div>
 
       <div class="stat-card red">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:0.5rem;">
           <div style="width:36px; height:36px; background:rgba(239,68,68,0.15); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1.1rem;">🚫</div>
-          <span class="text-secondary text-sm font-bold">Spam / Phishing Emails</span>
+          <span class="text-secondary text-sm font-bold">Spam / Phishing</span>
         </div>
-        <div class="stat-value text-red" id="spamCount" data-count="0">0</div>
-        <div class="text-xs text-muted mt-1" id="spamLabel">Scan your inbox to see results</div>
+        <div class="stat-value text-red" id="spamCount">{{ scan_results.spam_count if scan_results else 0 }}</div>
+        <div class="text-xs text-muted mt-1" id="spamLabel">
+          {% if scan_results %}Last scan: {{ scan_results.spam_count }} threats of {{ scan_results.total }}{% else %}Scan your inbox to see results{% endif %}
+        </div>
       </div>
     </div>
 
-    <!-- Chart + Category -->
-    <div style="display:grid; grid-template-columns:2fr 1fr; gap:1rem; margin-bottom:1.5rem;">
+    <!-- Quick links after scan -->
+    {% if scan_results and scan_results.total %}
+    <div style="display:flex; gap:1rem; margin-bottom:1.5rem;">
+      <a href="{{ url_for('inbox_emails') }}" class="btn btn-primary" style="flex:1; justify-content:center;">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0H4"/>
+        </svg>
+        View Inbox Analysis
+      </a>
+      <a href="{{ url_for('inbox_history') }}" class="btn btn-ghost" style="flex:1; justify-content:center;">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+        </svg>
+        View Threat History
+      </a>
+    </div>
+    {% endif %}
 
-      <!-- Chart -->
+    <!-- Chart + Donut -->
+    <div style="display:grid; grid-template-columns:2fr 1fr; gap:1rem; margin-bottom:1.5rem;">
       <div class="glass-card" style="padding:1.25rem;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
           <h3 style="font-family:'Poppins',sans-serif; font-weight:700; font-size:0.9rem;">Email Analysis</h3>
@@ -110,282 +129,117 @@
         </div>
       </div>
 
-      <!-- Category donut -->
       <div class="glass-card" style="padding:1.25rem;">
-        <h3 style="font-family:'Poppins',sans-serif; font-weight:700; font-size:0.9rem; margin-bottom:1rem;">Emails by Category</h3>
+        <h3 style="font-family:'Poppins',sans-serif; font-weight:700; font-size:0.9rem; margin-bottom:1rem;">By Category</h3>
         <div style="height:150px; display:flex; align-items:center; justify-content:center;">
           <canvas id="donutChart"></canvas>
         </div>
         <div style="display:flex; gap:1rem; justify-content:center; margin-top:0.75rem; font-size:0.75rem;">
-          <span style="color:var(--green);">● Safe <span id="safePct">77%</span></span>
-          <span style="color:var(--red);">● Spam <span id="spamPct">23%</span></span>
+          <span style="color:var(--green);">● Safe <span id="safePct">--</span></span>
+          <span style="color:var(--red);">● Spam <span id="spamPct">--</span></span>
         </div>
       </div>
     </div>
 
-    <!-- Recent Scans + Latest Emails -->
-    <div style="display:grid; grid-template-columns:1fr 2fr; gap:1rem;" id="inbox">
-
-      <!-- Recent Scans -->
-      <div class="glass-card" style="padding:1.25rem;">
-        <h3 style="font-family:'Poppins',sans-serif; font-weight:700; font-size:0.9rem; margin-bottom:1rem;">Recent Scans</h3>
-        <div id="recentScans" style="display:flex; flex-direction:column; gap:8px; font-size:0.8rem;">
-          <div class="text-muted text-sm">No scans yet. Click "Scan Inbox".</div>
-        </div>
-      </div>
-
-      <!-- Latest Emails -->
-      <div class="glass-card" style="padding:1.25rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-          <h3 style="font-family:'Poppins',sans-serif; font-weight:700; font-size:0.9rem;">Latest Emails</h3>
-          <span class="text-xs text-blue" style="cursor:pointer;">View All</span>
-        </div>
-
-        <!-- Filter tabs -->
-        <div style="display:flex; gap:8px; margin-bottom:1rem;">
-          <button class="btn btn-sm active-tab" id="tabAll"  onclick="filterTable('all')">All</button>
-          <button class="btn btn-sm btn-ghost" id="tabSafe" onclick="filterTable('safe')">Safe</button>
-          <button class="btn btn-sm btn-ghost" id="tabSpam" onclick="filterTable('spam')">Spam</button>
-        </div>
-
-        <div style="overflow-x:auto;">
-          <table class="data-table" id="emailTable">
-            <thead>
-              <tr>
-                <th>Sender</th>
-                <th>Subject</th>
-                <th>Status</th>
-                <th>Time</th>
-              </tr>
-            </thead>
-            <tbody id="emailTableBody">
-              <tr><td colspan="4" class="text-muted text-sm" style="text-align:center; padding:1.5rem;">Scan inbox to load emails</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- Threat History -->
-    <div id="history" style="margin-top:1.5rem;">
-      <div class="glass-card" style="padding:1.25rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-          <h3 style="font-family:'Poppins',sans-serif; font-weight:700; font-size:0.9rem;">Threat History</h3>
-          <input type="text" class="input-field" placeholder="🔍 Search emails..." id="historySearch"
-            style="width:200px; padding:6px 12px;" oninput="searchHistory(this.value)"/>
-        </div>
-
-        <div style="overflow-x:auto;">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Sender</th><th>Subject</th><th>Status</th><th>Score</th><th>Date & Time</th>
-              </tr>
-            </thead>
-            <tbody id="historyBody">
-              <tr><td colspan="5" class="text-muted text-sm" style="text-align:center; padding:1.5rem;">No history yet</td></tr>
-            </tbody>
-          </table>
-        </div>
+    <!-- Recent Scans -->
+    <div class="glass-card" style="padding:1.25rem;">
+      <h3 style="font-family:'Poppins',sans-serif; font-weight:700; font-size:0.9rem; margin-bottom:1rem;">Recent Scan Results</h3>
+      <div id="recentScans" style="display:flex; flex-direction:column; gap:8px; font-size:0.8rem;">
+        {% if scan_results and scan_results.results %}
+          {% for email in scan_results.results[:5] %}
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-subtle);">
+            <span style="truncate; max-width:300px; font-size:0.8rem;">{{ email.subject or '(no subject)' }}</span>
+            {% if email.prediction == 1 %}
+              <span class="badge badge-spam">SPAM</span>
+            {% else %}
+              <span class="badge badge-safe">SAFE</span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-muted text-sm">No scans yet. Click "Scan Inbox" to start.</div>
+        {% endif %}
       </div>
     </div>
 
   </main>
 </div>
-
 {% endblock %}
 
 {% block scripts %}
 <script>
-let allEmails = [];
-let chartInst = null;
-let donutInst = null;
+  const SAFE_COUNT = {{ scan_results.ham_count if scan_results else 0 }};
+  const SPAM_COUNT = {{ scan_results.spam_count if scan_results else 0 }};
 
-/* ── Charts ── */
-function initCharts(safe = 0, spam = 0) {
-  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  const ctx1  = document.getElementById('emailChart').getContext('2d');
-  if (chartInst) chartInst.destroy();
-  chartInst = new Chart(ctx1, {
-    type: 'line',
-    data: {
-      labels: days,
-      datasets: [
-        { label:'Safe', data:[40,55,45,60,safe||50,65,safe||70], borderColor:'#22C55E', backgroundColor:'rgba(34,197,94,0.1)', tension:0.4, fill:true, pointRadius:3 },
-        { label:'Spam', data:[10,18,12,20,spam||15,8,spam||12],  borderColor:'#EF4444', backgroundColor:'rgba(239,68,68,0.1)', tension:0.4, fill:true, pointRadius:3 }
-      ]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ display:false } },
-      scales:{
-        x:{ grid:{ color:'rgba(255,255,255,0.03)' }, ticks:{ color:'#64748B', font:{size:10} } },
-        y:{ grid:{ color:'rgba(255,255,255,0.03)' }, ticks:{ color:'#64748B', font:{size:10} } }
+  let chartInst = null, donutInst = null;
+
+  function initCharts(safe, spam) {
+    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const ctx1 = document.getElementById('emailChart').getContext('2d');
+    if (chartInst) chartInst.destroy();
+    chartInst = new Chart(ctx1, {
+      type: 'line',
+      data: {
+        labels: days,
+        datasets: [
+          { label:'Safe', data:[40,55,45,60,safe||50,65,safe||70], borderColor:'#22C55E', backgroundColor:'rgba(34,197,94,0.1)', tension:0.4, fill:true, pointRadius:3 },
+          { label:'Spam', data:[10,18,12,20,spam||15,8,spam||12], borderColor:'#EF4444', backgroundColor:'rgba(239,68,68,0.1)', tension:0.4, fill:true, pointRadius:3 }
+        ]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ display:false } },
+        scales:{
+          x:{ grid:{ color:'rgba(255,255,255,0.03)' }, ticks:{ color:'#64748B', font:{size:10} } },
+          y:{ grid:{ color:'rgba(255,255,255,0.03)' }, ticks:{ color:'#64748B', font:{size:10} } }
+        }
       }
-    }
-  });
-
-  const ctx2 = document.getElementById('donutChart').getContext('2d');
-  if (donutInst) donutInst.destroy();
-  const total  = safe + spam || 100;
-  const safePct = Math.round(safe / total * 100) || 77;
-  const spamPct = 100 - safePct;
-  donutInst = new Chart(ctx2, {
-    type:'doughnut',
-    data:{
-      labels:['Safe','Spam'],
-      datasets:[{ data:[safePct, spamPct], backgroundColor:['rgba(34,197,94,0.8)','rgba(239,68,68,0.8)'], borderWidth:0, hoverOffset:4 }]
-    },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, cutout:'70%' }
-  });
-
-  document.getElementById('safePct').textContent = safePct + '%';
-  document.getElementById('spamPct').textContent = spamPct + '%';
-}
-
-/* ── Scan inbox ── */
-async function scanInbox() {
-  const btn     = document.getElementById('scanBtn');
-  const spinner = document.getElementById('scanSpinner');
-  btn.disabled  = true;
-  spinner.style.display = 'block';
-
-  try {
-    // fetch emails
-    const r1   = await fetch('/api/emails');
-    const d1   = await r1.json();
-    if (d1.error) { alert(d1.error); return; }
-
-    // scan
-    const r2   = await fetch('/api/scan', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ emails: d1.emails })
     });
-    const d2   = await r2.json();
-    if (d2.error) { alert(d2.error); return; }
 
-    allEmails  = d2.results || [];
-    renderDashboard(d2);
-  } catch(e) {
-    alert('Error scanning inbox: ' + e.message);
-  } finally {
-    btn.disabled = false;
-    spinner.style.display = 'none';
+    const ctx2 = document.getElementById('donutChart').getContext('2d');
+    if (donutInst) donutInst.destroy();
+    const total = safe + spam || 100;
+    const safePct = Math.round(safe / total * 100) || 77;
+    const spamPct = 100 - safePct;
+    donutInst = new Chart(ctx2, {
+      type:'doughnut',
+      data:{
+        labels:['Safe','Spam'],
+        datasets:[{ data:[safePct, spamPct], backgroundColor:['rgba(34,197,94,0.8)','rgba(239,68,68,0.8)'], borderWidth:0, hoverOffset:4 }]
+      },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, cutout:'70%' }
+    });
+    document.getElementById('safePct').textContent = safePct + '%';
+    document.getElementById('spamPct').textContent = spamPct + '%';
   }
-}
 
-function renderDashboard(data) {
-  const safe = data.ham_count  || 0;
-  const spam = data.spam_count || 0;
-  const total = data.total     || 0;
+  async function scanInbox() {
+    const btn = document.getElementById('scanBtn');
+    const spinner = document.getElementById('scanSpinner');
+    btn.disabled = true;
+    spinner.style.display = 'block';
+    try {
+      const r1 = await fetch('/api/emails');
+      const d1 = await r1.json();
+      if (d1.error) { alert(d1.error); return; }
 
-  // animate counts
-  animateNum('safeCount', safe);
-  animateNum('spamCount', spam);
-  document.getElementById('safeLabel').textContent = `+${Math.round(safe/total*18||0)}% this week`;
-  document.getElementById('spamLabel').textContent = `-${Math.round(spam/total*12||0)}% this week`;
+      const r2 = await fetch('/api/scan', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ emails: d1.emails })
+      });
+      const d2 = await r2.json();
+      if (d2.error) { alert(d2.error); return; }
 
-  initCharts(safe, spam);
-  renderTable(allEmails);
-  renderHistory(allEmails);
-  renderRecentScans(allEmails.slice(0, 5));
-}
-
-function animateNum(id, target) {
-  const el = document.getElementById(id);
-  const dur = 1000; const start = performance.now();
-  function step(now) {
-    const p = Math.min((now - start) / dur, 1);
-    el.textContent = Math.round(p * target);
-    if (p < 1) requestAnimationFrame(step);
+      // Reload page to reflect updated session data
+      window.location.reload();
+    } catch(e) {
+      alert('Error scanning inbox: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      spinner.style.display = 'none';
+    }
   }
-  requestAnimationFrame(step);
-}
 
-function renderTable(emails) {
-  const tbody = document.getElementById('emailTableBody');
-  if (!emails.length) { tbody.innerHTML = '<tr><td colspan="4" class="text-muted text-sm" style="text-align:center;padding:1.5rem;">No emails found</td></tr>'; return; }
-  tbody.innerHTML = emails.slice(0,20).map(e => {
-    const isSpam = e.prediction === 1;
-    const badge  = isSpam ? '<span class="badge badge-spam">SPAM</span>' : '<span class="badge badge-safe">SAFE</span>';
-    const time   = formatTime(e.date);
-    return `<tr>
-      <td class="truncate" style="max-width:140px;">${escape(e.from || '')}</td>
-      <td class="truncate" style="max-width:180px;">${escape(e.subject || '')}</td>
-      <td>${badge}</td>
-      <td class="text-xs text-muted">${time}</td>
-    </tr>`;
-  }).join('');
-}
-
-function renderHistory(emails) {
-  const tbody = document.getElementById('historyBody');
-  if (!emails.length) return;
-  tbody.innerHTML = emails.map(e => {
-    const isSpam = e.prediction === 1;
-    const score  = Math.round((e.probability || 0.5) * 100);
-    const badge  = isSpam ? '<span class="badge badge-spam">SPAM</span>' : '<span class="badge badge-safe">SAFE</span>';
-    return `<tr data-label="${isSpam?'spam':'safe'}">
-      <td class="truncate" style="max-width:130px;">${escape(e.from || '')}</td>
-      <td class="truncate" style="max-width:200px;">${escape(e.subject || '')}</td>
-      <td>${badge}</td>
-      <td><span style="color:${isSpam?'var(--red)':'var(--green)'};">${score}%</span></td>
-      <td class="text-xs text-muted">${formatTime(e.date)}</td>
-    </tr>`;
-  }).join('');
-}
-
-function renderRecentScans(emails) {
-  const el = document.getElementById('recentScans');
-  el.innerHTML = emails.map(e => {
-    const isSpam = e.prediction === 1;
-    return `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-subtle);">
-      <span class="truncate" style="max-width:140px; font-size:0.8rem;">${escape(e.subject||'(no subject)')}</span>
-      <span class="badge ${isSpam?'badge-spam':'badge-safe'}">${isSpam?'SPAM':'SAFE'}</span>
-    </div>`;
-  }).join('');
-}
-
-function filterTable(type) {
-  ['tabAll','tabSafe','tabSpam'].forEach(id => {
-    document.getElementById(id).className = 'btn btn-sm btn-ghost';
-  });
-  document.getElementById('tab' + type.charAt(0).toUpperCase() + type.slice(1)).className = 'btn btn-sm active-tab';
-
-  const rows = document.querySelectorAll('#emailTableBody tr');
-  rows.forEach(row => {
-    if (type === 'all') { row.style.display = ''; return; }
-    const badge = row.querySelector('.badge');
-    if (!badge) return;
-    const label = badge.classList.contains('badge-safe') ? 'safe' : 'spam';
-    row.style.display = label === type ? '' : 'none';
-  });
-}
-
-function searchHistory(q) {
-  const rows = document.querySelectorAll('#historyBody tr');
-  rows.forEach(row => {
-    row.style.display = row.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
-  });
-}
-
-function formatTime(dateStr) {
-  if (!dateStr) return '—';
-  try {
-    return new Date(dateStr).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
-  } catch { return dateStr; }
-}
-
-function escape(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-// style active tab
-const activeTabStyle = document.createElement('style');
-activeTabStyle.textContent = `.active-tab { background:rgba(37,99,235,0.2); border:1px solid rgba(37,99,235,0.4); color:var(--blue-light); }`;
-document.head.appendChild(activeTabStyle);
-
-// init charts on load
-document.addEventListener('DOMContentLoaded', () => { initCharts(); });
+  document.addEventListener('DOMContentLoaded', () => { initCharts(SAFE_COUNT, SPAM_COUNT); });
 </script>
 {% endblock %}
