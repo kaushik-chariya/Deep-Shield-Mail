@@ -1,6 +1,8 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:1a1a2e,100:00B4CC&height=200&section=header&text=🛡️%20Deep%20Shield%20Mail&fontSize=48&fontColor=ffffff&fontAlignY=38&desc=AI-Powered%20Spam%20%26%20Phishing%20Detection%20Engine&descAlignY=60&descSize=18" width="100%"/>
+<img 
+src="https://capsule-render.vercel.app/api?type=waving&color=0:1a1a2e,100:00B4CC&height=200&section=header&text=Deep%20Shield%20Mail&fontSize=48&fontColor=ffffff&fontAlignY=38&desc=AI-Powered%20Spam%20and%20Phishing%20Detection%20Engine&descAlignY=60&descSize=18" 
+width="100%"/>
 
 <br/>
 
