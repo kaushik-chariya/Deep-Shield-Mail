@@ -170,7 +170,7 @@ def auth_gmail():
 
     auth_url, state = flow.authorization_url(
         access_type="offline",
-        include_granted_scopes="true",
+        prompt="consent",
         code_challenge_method="S256",
     )
     session["google_state"]         = state
@@ -199,10 +199,15 @@ def auth_gmail_callback():
     flow = Flow.from_client_config(client_config, scopes=GOOGLE_SCOPES, state=state)
     flow.redirect_uri = redirect_uri
 
-    flow.fetch_token(
-        authorization_response=request.url,
-        code_verifier=session.get("google_code_verifier"),
-    )
+    try:
+        flow.fetch_token(
+            authorization_response=request.url,
+            code_verifier=session.get("google_code_verifier"),
+        )
+    except Exception as e:
+        app.logger.error(f"OAuth token error: {e}")
+        flash("Login failed. Please try again.", "danger")
+        return redirect(url_for("index"))
 
     creds = flow.credentials
     session["provider"]     = "gmail"
@@ -212,13 +217,18 @@ def auth_gmail_callback():
         "token_uri"    : creds.token_uri,
         "client_id"    : creds.client_id,
         "client_secret": creds.client_secret,
-        # ✅ frozenset JSON serializable nahi — list mein convert karo
         "scopes"       : list(creds.scopes) if creds.scopes else [],
     }
 
-    service = build("gmail", "v1", credentials=creds)
-    profile = service.users().getProfile(userId="me").execute()
-    session["user_email"] = profile.get("emailAddress", "")
+    try:
+        service = build("gmail", "v1", credentials=creds)
+        profile = service.users().getProfile(userId="me").execute()
+        session["user_email"] = profile.get("emailAddress", "")
+    except Exception as e:
+        app.logger.error(f"Gmail profile error: {e}")
+        flash("Gmail access failed. Please try again.", "danger")
+        return redirect(url_for("index"))
+
     flash(f"Connected as {session['user_email']}", "success")
     return redirect(url_for("inbox"))
 
