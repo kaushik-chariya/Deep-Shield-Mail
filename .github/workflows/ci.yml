@@ -249,6 +249,15 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
 
+            # ── Clean up old Docker data ──────────────────
+            echo "===== CLEANING DISK SPACE ====="
+            docker container prune -f
+            docker image prune -af
+            docker volume prune -f
+            docker builder prune -af
+            echo "===== FREE DISK ====="
+            df -h
+
             # ── Login to ECR ──────────────────────────────
             aws ecr get-login-password \
               --region ${{ secrets.AWS_REGION }} | \
@@ -265,7 +274,7 @@ jobs:
             docker stop deep-shield-mail || true
             docker rm   deep-shield-mail || true
 
-            # ── Run new container (24/7 auto-restart)  ─────
+            # ── Run new container (24/7 auto-restart) ─────
             docker run -d \
               --name deep-shield-mail \
               --restart=always \
