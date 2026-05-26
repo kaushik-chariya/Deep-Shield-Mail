@@ -11,3 +11,4 @@ artifact/
 mlruns/
 
 .env/ 
+.env
