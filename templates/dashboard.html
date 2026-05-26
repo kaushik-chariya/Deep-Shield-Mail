@@ -219,7 +219,7 @@
     btn.disabled = true;
     spinner.style.display = 'block';
     try {
-      const r1 = await fetch('/api/emails');
+      const r1 = await fetch('/api/emails?limit=50');
       const d1 = await r1.json();
       if (d1.error) { alert(d1.error); return; }
 

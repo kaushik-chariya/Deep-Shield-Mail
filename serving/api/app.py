@@ -3,7 +3,7 @@ Deep Shield Mail — Flask App
 Supports: Gmail OAuth2 · Manual Paste
 """
 from google_auth_oauthlib.flow import Flow
-import os, sys, traceback, json
+import os, sys, traceback, json, hashlib
 from functools import wraps
 from pathlib import Path
 
@@ -82,6 +82,24 @@ def get_redirect_uri() -> str:
         "REDIRECT_URI",
         url_for("auth_gmail_callback", _external=True)
     )
+
+
+# ═══════════════════════════════════════════════════════════════
+# Helper — scan file path for user
+# ═══════════════════════════════════════════════════════════════
+
+def get_scan_file_path() -> str:
+    scan_id = hashlib.md5(session.get("user_email", "user").encode()).hexdigest()
+    return f"/tmp/scan_{scan_id}.json"
+
+
+def load_scan_results() -> dict:
+    """Session se ya file se full scan results load karo."""
+    scan_file = session.get("scan_file", get_scan_file_path())
+    if scan_file and os.path.exists(scan_file):
+        with open(scan_file) as f:
+            return json.load(f)
+    return session.get("scan_results", {})
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -235,13 +253,13 @@ def inbox():
 
 
 # ═══════════════════════════════════════════════════════════════
-# Inbox Emails — Separate Page
+# Inbox Emails — Separate Page (full results from file)
 # ═══════════════════════════════════════════════════════════════
 
 @app.route("/inbox/emails")
 @login_required
 def inbox_emails():
-    scan_results = session.get("scan_results", {})
+    scan_results = load_scan_results()
     emails = scan_results.get("results", [])
     return render_template(
         "emails.html",
@@ -254,13 +272,13 @@ def inbox_emails():
 
 
 # ═══════════════════════════════════════════════════════════════
-# Threat History — Separate Page
+# Threat History — Separate Page (full results from file)
 # ═══════════════════════════════════════════════════════════════
 
 @app.route("/inbox/history")
 @login_required
 def inbox_history():
-    scan_results = session.get("scan_results", {})
+    scan_results = load_scan_results()
     emails = scan_results.get("results", [])
     return render_template(
         "history.html",
@@ -270,13 +288,13 @@ def inbox_history():
 
 
 # ═══════════════════════════════════════════════════════════════
-# Email Detail — Full Email View
+# Email Detail — Full Email View (full results from file)
 # ═══════════════════════════════════════════════════════════════
 
 @app.route("/email/<email_id>")
 @login_required
 def email_detail(email_id):
-    scan_results = session.get("scan_results", {})
+    scan_results = load_scan_results()
     emails = scan_results.get("results", [])
     email = next((e for e in emails if e.get("id") == email_id), None)
     if not email:
@@ -290,14 +308,14 @@ def email_detail(email_id):
 
 
 # ═══════════════════════════════════════════════════════════════
-# API — Emails & Scan (stores results in session)
+# API — Emails & Scan
 # ═══════════════════════════════════════════════════════════════
 
 @app.route("/api/emails")
 @login_required
 def api_emails():
     page  = int(request.args.get("page",  1))
-    limit = int(request.args.get("limit", 20))
+    limit = int(request.args.get("limit", 50))
     try:
         emails = _fetch_gmail(page, limit)
         return jsonify({"emails": emails, "page": page})
@@ -347,8 +365,19 @@ def api_scan():
         "ham_count" : len(results) - spam_count,
     }
 
-    # ✅ Store scan results in session so all pages can access them
-    session["scan_results"] = scan_data
+    # ✅ Full results /tmp file mein save karo (session cookie overflow avoid)
+    scan_file = get_scan_file_path()
+    with open(scan_file, "w") as sf:
+        json.dump(scan_data, sf)
+
+    # Session mein sirf summary + file path rakho
+    session["scan_file"] = scan_file
+    session["scan_results"] = {
+        "total"     : scan_data["total"],
+        "spam_count": scan_data["spam_count"],
+        "ham_count" : scan_data["ham_count"],
+        "results"   : results[:5],  # dashboard ke liye sirf 5
+    }
     session.modified = True
 
     return jsonify(scan_data)
@@ -408,6 +437,10 @@ def _fetch_gmail(page: int, limit: int) -> list[dict]:
 
 @app.route("/logout")
 def logout():
+    # Scan file bhi delete karo
+    scan_file = session.get("scan_file")
+    if scan_file and os.path.exists(scan_file):
+        os.remove(scan_file)
     session.clear()
     flash("Disconnected successfully.", "info")
     return redirect(url_for("index"))
