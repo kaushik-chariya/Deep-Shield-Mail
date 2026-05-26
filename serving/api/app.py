@@ -42,14 +42,22 @@ app = Flask(
     static_folder=str(ROOT / "static"),
 )
 
-app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+app.wsgi_app = ProxyFix(
+    app.wsgi_app,
+    x_for=1,
+    x_proto=1,
+    x_host=1,
+    x_port=1
+)
+
+app.config["PREFERRED_URL_SCHEME"] = "https"
 
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-change-in-prod")
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"]   = True    # ✅ HTTPS pe Secure flag zaroori
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 
-os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
+
 os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
 
 # ── Lazy-load prediction pipeline ───────────────────────────────
@@ -81,7 +89,7 @@ GOOGLE_SCOPES        = [
 def get_redirect_uri() -> str:
     return os.getenv(
         "REDIRECT_URI",
-        url_for("auth_gmail_callback", _external=True)
+        "https://deepshieldmail.duckdns.org/auth/gmail/callback"
     )
 
 
