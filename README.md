@@ -1,24 +1,56 @@
+<div align="center">
 
-# 🛡️ Deep Shield Mail
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:1a1a2e,100:00B4CC&height=200&section=header&text=🛡️%20Deep%20Shield%20Mail&fontSize=48&fontColor=ffffff&fontAlignY=38&desc=AI-Powered%20Spam%20%26%20Phishing%20Detection%20Engine&descAlignY=60&descSize=18" width="100%"/>
+
+<br/>
+
+[![Python](https://img.shields.io/badge/Python-3.10-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Flask](https://img.shields.io/badge/Flask-2.x-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com)
+[![Naive Bayes](https://img.shields.io/badge/Naive%20Bayes-97.8%25%20Accuracy-22c55e?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
+[![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://docker.com)
+[![AWS](https://img.shields.io/badge/AWS-EC2%20·%20ECR%20·%20S3-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white)](https://aws.amazon.com)
+[![MLflow](https://img.shields.io/badge/MLflow-Tracking-0194E2?style=for-the-badge&logo=mlflow&logoColor=white)](https://mlflow.org)
+[![DVC](https://img.shields.io/badge/DVC-Versioning-945DD6?style=for-the-badge&logo=dvc&logoColor=white)](https://dvc.org)
+[![Nginx](https://img.shields.io/badge/Nginx-SSL%20Proxy-009639?style=for-the-badge&logo=nginx&logoColor=white)](https://nginx.org)
+
+<br/>
+
+> **Production-grade, end-to-end MLOps system that detects spam & phishing emails in real-time using Naive Bayes + NLP — deployed on AWS with full CI/CD.**
+
+<br/>
+
+[![Live Demo](https://img.shields.io/badge/🌐%20Live%20Application-deepshieldmail.duckdns.org-00B4CC?style=for-the-badge&labelColor=1a1a2e)](https://deepshieldmail.duckdns.org)
+
+</div>
+
+---
+
+## 📸 Demo
 
 <div align="center">
 
-![Python](https://img.shields.io/badge/Python-3.10-blue?style=for-the-badge&logo=python&logoColor=white)
-![Flask](https://img.shields.io/badge/Flask-2.x-black?style=for-the-badge&logo=flask&logoColor=white)
-![Naive Bayes](https://img.shields.io/badge/Naive%20Bayes-Final%20Model-green?style=for-the-badge&logo=scikit-learn&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![AWS](https://img.shields.io/badge/AWS-EC2%20%7C%20ECR%20%7C%20S3-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white)
-![MLflow](https://img.shields.io/badge/MLflow-Experiment%20Tracking-0194E2?style=for-the-badge&logo=mlflow&logoColor=white)
-![DVC](https://img.shields.io/badge/DVC-Data%20Versioning-945DD6?style=for-the-badge&logo=dvc&logoColor=white)
-![Nginx](https://img.shields.io/badge/Nginx-SSL%20Proxy-009639?style=for-the-badge&logo=nginx&logoColor=white)
+### 🏠 Home — Stop Email Threats Instantly
+<img src="images/Home_page.png" alt="Home Page" width="90%" style="border-radius:12px; box-shadow: 0 8px 32px rgba(0,180,204,0.3);"/>
 
-<br/>
+<br/><br/>
 
-**A production-grade, end-to-end MLOps project that detects spam & phishing emails in real-time using Naive Bayes + NLP, deployed on AWS with full CI/CD pipeline.**
+### 📊 Dashboard — Real-time Threat Intelligence
+<img src="images/deshbord.png" alt="Dashboard" width="90%" style="border-radius:12px; box-shadow: 0 8px 32px rgba(0,180,204,0.3);"/>
 
-<br/>
+<br/><br/>
 
-[![Live Demo](https://img.shields.io/badge/🌐_Live_Application-deepshieldmail.duckdns.org-00B4CC?style=for-the-badge&labelColor=1a1a2e)](https://deepshieldmail.duckdns.org)
+### 📥 Inbox Analysis — Per-email Predictions & Confidence Scores
+<img src="images/inbox_analysis.png" alt="Inbox Analysis" width="90%" style="border-radius:12px; box-shadow: 0 8px 32px rgba(0,180,204,0.3);"/>
+
+<br/><br/>
+
+### ✍️ Manual Email Analysis — Paste & Analyze Instantly
+<img src="images/Manual_email.png" alt="Manual Analysis" width="90%" style="border-radius:12px; box-shadow: 0 8px 32px rgba(0,180,204,0.3);"/>
+
+<br/><br/>
+
+### 🕵️ Threat History — Complete Scan Log with SAFE/SPAM Badges
+<img src="images/threat_history.png" alt="Threat History" width="90%" style="border-radius:12px; box-shadow: 0 8px 32px rgba(0,180,204,0.3);"/>
 
 </div>
 
@@ -26,100 +58,101 @@
 
 ## 📌 Table of Contents
 
-- [💼 Business Problem](#-business-problem)
-- [✨ Features](#-features)
-- [📸 Screenshots](#-screenshots)
-- [🔬 ML Experiments](#-ml-experiments--algorithm-selection)
-- [🧠 Feature Engineering](#-feature-engineering)
-- [🔄 MLOps Pipeline](#-mlops-pipeline)
-- [🏗️ Architecture](#️-architecture)
-- [⚙️ CI/CD & Deployment](#️-cicd--deployment)
-- [📁 Project Structure](#-project-structure)
-- [🚀 Local Setup](#-local-setup)
-- [🐳 Docker](#-docker)
-- [🔌 API Endpoints](#-api-endpoints)
-- [👨‍💻 Author](#-author)
+| # | Section |
+|---|---------|
+| 1 | [💼 Business Problem](#-business-problem) |
+| 2 | [✨ Features](#-features) |
+| 3 | [🔬 ML Experiments](#-ml-experiments--algorithm-selection) |
+| 4 | [🧠 Feature Engineering](#-feature-engineering) |
+| 5 | [🔄 MLOps Pipeline](#-mlops-pipeline) |
+| 6 | [🏗️ Architecture](#️-architecture) |
+| 7 | [⚙️ CI/CD & Deployment](#️-cicd--deployment) |
+| 8 | [🚀 Local Setup](#-local-setup) |
+| 9 | [🐳 Docker](#-docker) |
+| 10 | [🔌 API Endpoints](#-api-endpoints) |
+| 11 | [🔐 Security & Privacy](#-security--privacy) |
 
 ---
 
 ## 💼 Business Problem
 
-Email-based threats — spam, phishing, and malicious content — are among the most common cyberattacks globally. Users unknowingly interact with dangerous emails that lead to:
+Email-based threats — spam, phishing, and malicious content — are among the most widespread cyberattacks globally. Users unknowingly interact with dangerous emails that lead to:
 
-- **Financial fraud** — phishing emails stealing banking credentials
-- **Identity theft** — fake login pages harvesting personal data
-- **Malware infection** — malicious attachments and links
-- **Privacy breaches** — sensitive data exposed via social engineering
+```
+💸 Financial Fraud      →  Phishing emails stealing banking credentials
+🪪 Identity Theft       →  Fake login pages harvesting personal data
+🦠 Malware Infection    →  Malicious attachments and links
+🔓 Privacy Breaches     →  Sensitive data exposed via social engineering
+```
 
-Traditional spam filters fail against modern sophisticated attacks. Users need **intelligent, real-time email threat detection** that connects directly to their inbox and works instantly.
+> Traditional spam filters fail against modern sophisticated attacks. Deep Shield Mail delivers **intelligent, real-time email threat detection** connected directly to your inbox — working instantly.
 
 ---
 
 ## ✨ Features
 
-- 🔐 **Gmail OAuth2 Integration** — Securely connect your Gmail inbox (read-only)
-- 🤖 **AI-Powered Detection** — Naive Bayes classifier with TF-IDF + hand-crafted NLP features
-- 📊 **Real-time Dashboard** — Safe vs Spam stats, line chart, donut visualization
-- 📥 **Inbox Analysis** — Full inbox scan with per-email predictions & confidence scores
-- 🕵️ **Threat History** — Complete scan history with SAFE/SPAM badges
-- ✍️ **Manual Email Analysis** — Paste any raw email text for instant analysis
-- 📈 **MLflow Experiment Tracking** — All 6 algorithms tracked and compared
-- 🐳 **Dockerized & Cloud Deployed** — AWS EC2 + ECR + Nginx + Let's Encrypt SSL
-- 🔒 **Zero Data Storage** — Emails never stored permanently, privacy first
+<table>
+<tr>
+<td width="50%">
 
----
+🔐 **Gmail OAuth2 Integration**
+Securely connect your Gmail inbox (read-only, no write permissions)
 
-## 📸 Screenshots
+📊 **Real-time Dashboard**
+Safe vs Spam stats, line chart, donut visualization — live data
 
-### 🏠 Home Page — Stop Email Threats Instantly
+📥 **Inbox Analysis**
+Full inbox scan with per-email predictions & confidence scores
 
-![Home Page](./screenshots/home.png)
+🕵️ **Threat History**
+Complete scan history with SAFE/SPAM badges and timestamps
 
----
+</td>
+<td width="50%">
 
-### ⚡ Why Deep Shield? — AI Detection · Real-time Protection · Secure & Private
+🤖 **AI-Powered Detection**
+Naive Bayes + TF-IDF + 12 hand-crafted NLP features
 
-![Features Section](./screenshots/features.png)
+✍️ **Manual Email Analysis**
+Paste any raw email text for instant classification
 
----
+📈 **MLflow Experiment Tracking**
+All 6 algorithms tracked, compared, and versioned
 
-### ✍️ Manual Email Analysis — Paste & Analyze Instantly
+🔒 **Zero Data Storage**
+Emails never stored permanently — privacy first
 
-![Manual Demo](./screenshots/manual_demo.png)
-
----
-
-### 📊 Full UI Overview — Dashboard · Gmail Login · Spam/Safe Results · Threat History
-
-![Full UI](./deeplshaild.png)
+</td>
+</tr>
+</table>
 
 ---
 
 ## 🔬 ML Experiments — Algorithm Selection
 
-All experiments tracked with **MLflow**. 6 algorithms evaluated on the same dataset:
+> All experiments tracked with **MLflow** across 6 algorithms on identical datasets.
 
-| Algorithm | Accuracy | Precision | Recall | F1 Score |
-|-----------|----------|-----------|--------|----------|
-| **Naive Bayes** ✅ | **97.8%** | **98.1%** | **97.4%** | **97.7%** |
-| Logistic Regression | 96.2% | 96.8% | 95.7% | 96.2% |
-| SVM (SVC) | 96.5% | 97.0% | 95.9% | 96.4% |
-| Random Forest | 95.9% | 96.1% | 95.3% | 95.7% |
-| XGBoost | 95.4% | 95.8% | 94.9% | 95.3% |
-| Decision Tree | 93.1% | 93.4% | 92.6% | 93.0% |
+| Algorithm | Accuracy | Precision | Recall | F1 Score | Status |
+|-----------|:--------:|:---------:|:------:|:--------:|:------:|
+| **Naive Bayes** | **97.8%** | **98.1%** | **97.4%** | **97.7%** | ✅ **Selected** |
+| SVM (SVC) | 96.5% | 97.0% | 95.9% | 96.4% | — |
+| Logistic Regression | 96.2% | 96.8% | 95.7% | 96.2% | — |
+| Random Forest | 95.9% | 96.1% | 95.3% | 95.7% | — |
+| XGBoost | 95.4% | 95.8% | 94.9% | 95.3% | — |
+| Decision Tree | 93.1% | 93.4% | 92.6% | 93.0% | — |
 
-> ✅ **Naive Bayes selected as final algorithm** — highest F1 score, fastest inference, and best suited for high-dimensional TF-IDF sparse text features. Probabilistic nature provides natural confidence scores.
+> ✅ **Why Naive Bayes?** — Highest F1 score, fastest inference, best-suited for high-dimensional TF-IDF sparse text. Its probabilistic nature delivers natural confidence scores out-of-the-box.
 
 ### Experiment Notebooks
 
-| Notebook | Algorithm |
-|----------|-----------|
-| `exp-Naive_Bayes.ipynb` | ✅ Final Model |
-| `exp-Logistic_Regression.ipynb` | Baseline |
-| `exp-RandomForest.ipynb` | Ensemble |
-| `exp-SVC.ipynb` | Kernel-based |
-| `exp-XGBoost.ipynb` | Gradient Boosting |
-| `exp-DecisionTree.ipynb` | Tree-based |
+| Notebook | Algorithm | Role |
+|----------|-----------|------|
+| `exp-Naive_Bayes.ipynb` | Naive Bayes | ✅ Final Model |
+| `exp-Logistic_Regression.ipynb` | Logistic Regression | Baseline |
+| `exp-RandomForest.ipynb` | Random Forest | Ensemble |
+| `exp-SVC.ipynb` | Support Vector Machine | Kernel-based |
+| `exp-XGBoost.ipynb` | XGBoost | Gradient Boosting |
+| `exp-DecisionTree.ipynb` | Decision Tree | Tree-based |
 
 ---
 
@@ -128,24 +161,25 @@ All experiments tracked with **MLflow**. 6 algorithms evaluated on the same data
 ```
 Raw Email Text
       │
-      ├── EmailParser           → From, To, Subject, Date, Body
+      ├── 📧 EmailParser
+      │         └── From · To · Subject · Date · Body
       │
-      ├── MetaFeatureExtractor  → 12 hand-crafted features
-      │     ├── has_suspicious_links
-      │     ├── sender_domain_match
-      │     ├── exclamation_count
-      │     ├── uppercase_ratio
-      │     ├── has_html_tags
-      │     ├── url_count
-      │     └── ... (6 more)
+      ├── 🔍 MetaFeatureExtractor   →  12 hand-crafted features
+      │         ├── has_suspicious_links
+      │         ├── sender_domain_match
+      │         ├── exclamation_count
+      │         ├── uppercase_ratio
+      │         ├── has_html_tags
+      │         ├── url_count
+      │         └── ... (6 more)
       │
-      └── BodyFeatureExtractor  → TF-IDF (30,000 features)
-                                           │
-                           Final Matrix: (1, 30,012)
-                                           │
-                               Naive Bayes Prediction
-                                           │
-                               SAFE (0) / SPAM (1) + Probability Score
+      └── 📝 BodyFeatureExtractor   →  TF-IDF (30,000 features)
+                                                │
+                                Final Matrix: (1, 30,012)
+                                                │
+                                    Naive Bayes Prediction
+                                                │
+                                    SAFE (0) / SPAM (1) + Probability Score
 ```
 
 ---
@@ -153,28 +187,35 @@ Raw Email Text
 ## 🔄 MLOps Pipeline
 
 ```
-Data Ingestion → Data Validation → Data Transformation → Model Training → Model Evaluation → Model Pusher
-      │                 │                  │                    │                 │                │
-  CSV Load         Schema Check        TF-IDF Fit          Naive Bayes        Metrics          S3/ECR
-  Train/Test       report.yaml        preprocessing.pkl     model.pkl          Compare           Push
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              TRAINING PIPELINE                                  │
+├──────────────┬──────────────┬────────────────┬──────────────┬───────────────────┤
+│ Data         │ Data         │ Data           │ Model        │ Model    Model    │
+│ Ingestion    │ Validation   │ Transformation │ Training     │ Eval     Pusher   │
+├──────────────┼──────────────┼────────────────┼──────────────┼───────────────────┤
+│ CSV Load     │ Schema Check │ TF-IDF Fit     │ Naive Bayes  │ Metrics   S3/ECR  │
+│ Train/Test   │ report.yaml  │ preprocessing  │ model.pkl    │ Compare   Push    │
+│ Split        │              │ .pkl           │              │                   │
+└──────────────┴──────────────┴────────────────┴──────────────┴───────────────────┘
 ```
 
-### Pipeline Components
+### Pipeline Component Map
 
-| Component | File | Description |
-|-----------|------|-------------|
-| Data Ingestion | `data_ingestion.py` | Load raw CSV, train/test split |
-| Data Validation | `data_validation.py` | Schema checks, drift detection |
-| Data Transformation | `data_transformation.py` | TF-IDF + hand-crafted features |
-| Model Trainer | `model_trainer.py` | Train Naive Bayes, save model.pkl |
-| Model Evaluation | `model_evaluation.py` | Compare new model vs production |
-| Model Pusher | `model_pusher.py` | Push best model to S3/ECR |
-
-### DVC Pipeline
+| Stage | File | Responsibility |
+|-------|------|----------------|
+| 📥 Data Ingestion | `data_ingestion.py` | Load raw CSV, train/test split |
+| ✅ Data Validation | `data_validation.py` | Schema checks, drift detection |
+| 🔀 Data Transformation | `data_transformation.py` | TF-IDF + hand-crafted features |
+| 🤖 Model Trainer | `model_trainer.py` | Train Naive Bayes, save `model.pkl` |
+| 📊 Model Evaluation | `model_evaluation.py` | Compare new model vs production |
+| 🚀 Model Pusher | `model_pusher.py` | Push best model to S3 / ECR |
 
 ```bash
-dvc repro   # Run full pipeline
-dvc dag     # View pipeline DAG
+# Reproduce full pipeline
+dvc repro
+
+# Visualize pipeline DAG
+dvc dag
 ```
 
 ---
@@ -182,25 +223,38 @@ dvc dag     # View pipeline DAG
 ## 🏗️ Architecture
 
 ```
-User Browser
-     │
-     ▼
-Nginx (SSL/TLS — Let's Encrypt)
-deepshieldmail.duckdns.org
-     │
-     ▼
-Gunicorn (Flask App) ── Port 8000
-     │
-     ├── /auth/gmail  ── Gmail OAuth2 ── Google API
-     │
-     ├── /api/emails  ── Fetch Inbox (Gmail API, limit=50)
-     │
-     └── /api/scan    ── Prediction Pipeline
+                        User Browser
                               │
-                              ├── EmailParser
-                              ├── MetaFeatureExtractor  (12 features)
-                              ├── BodyFeatureExtractor  (TF-IDF 30,000)
-                              └── Naive Bayes → SAFE / SPAM + Score
+                              ▼
+                  ┌─────────────────────┐
+                  │  Nginx (SSL/TLS)     │
+                  │  Let's Encrypt 443  │
+                  │  deepshieldmail.    │
+                  │  duckdns.org        │
+                  └──────────┬──────────┘
+                             │
+                             ▼
+                  ┌─────────────────────┐
+                  │  Gunicorn           │
+                  │  Flask App :8000    │
+                  │  2 workers · 2 thr  │
+                  └──────────┬──────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              ▼              ▼              ▼
+        /auth/gmail     /api/emails     /api/scan
+        Gmail OAuth2    Fetch Inbox     Prediction
+        Google API      (limit=50)      Pipeline
+                                            │
+                              ┌─────────────┼─────────────┐
+                              ▼             ▼             ▼
+                         EmailParser  MetaFeature    BodyFeature
+                                      Extractor      Extractor
+                                      (12 features)  (TF-IDF 30k)
+                                              │
+                                              ▼
+                                       Naive Bayes
+                                       SAFE / SPAM + Score
 ```
 
 ---
@@ -208,40 +262,43 @@ Gunicorn (Flask App) ── Port 8000
 ## ⚙️ CI/CD & Deployment
 
 ```
-Local Code
-    │
-    ▼
-git push → GitHub
-    │
-    ▼
-Docker Build (Local)
-    │
-    ▼
-AWS ECR (Image Push)
-343980058839.dkr.ecr.us-east-1.amazonaws.com/deep-shield-mail:latest
-    │
-    ▼
-AWS EC2 (Ubuntu) — docker pull + run
-    │
-    ▼
-Nginx Reverse Proxy (Port 443 SSL)
-    │
-    ▼
-deepshieldmail.duckdns.org ✅ Live
+  Local Code
+      │
+      ▼
+  git push ──► GitHub
+                  │
+                  ▼
+          Docker Build (Local)
+                  │
+                  ▼
+          AWS ECR Push
+          343980058839.dkr.ecr.us-east-1.amazonaws.com/
+          deep-shield-mail:latest
+                  │
+                  ▼
+          AWS EC2 (Ubuntu 24)
+          docker pull + run
+                  │
+                  ▼
+          Nginx Reverse Proxy
+          Port 443 SSL ✅
+                  │
+                  ▼
+          deepshieldmail.duckdns.org 🌐 Live
 ```
 
-### Infrastructure
+### Infrastructure Stack
 
-| Component | Technology |
-|-----------|-----------|
-| Cloud | AWS EC2 (Ubuntu 24) |
-| Container Registry | AWS ECR |
-| Container | Docker |
-| Web Server | Nginx + Let's Encrypt SSL |
-| App Server | Gunicorn (2 workers, 2 threads, 300s timeout) |
-| DNS | DuckDNS |
-| Experiment Tracking | MLflow |
-| Data Versioning | DVC |
+| Layer | Technology |
+|-------|-----------|
+| ☁️ Cloud | AWS EC2 (Ubuntu 24.04) |
+| 📦 Container Registry | AWS ECR |
+| 🐳 Container | Docker |
+| 🔒 Web Server | Nginx + Let's Encrypt SSL |
+| ⚙️ App Server | Gunicorn (2 workers, 2 threads, 300s timeout) |
+| 🌐 DNS | DuckDNS |
+| 📊 Experiment Tracking | MLflow |
+| 📁 Data Versioning | DVC + S3 Remote |
 
 ---
 
@@ -250,44 +307,38 @@ deepshieldmail.duckdns.org ✅ Live
 ```
 Deep-Shield-Mail/
 │
-├── serving/
-│   └── api/
-│       └── app.py                   ← Flask app (OAuth, scan, predict APIs)
+├── 🌐 serving/api/app.py              ← Flask app (OAuth · Scan · Predict APIs)
 │
-├── src/
+├── 🧠 src/
 │   ├── pipeline/
-│   │   ├── prediction_pipeline.py   ← EmailParser + Features + Naive Bayes
-│   │   └── training_pipeline.py     ← End-to-end MLOps training
-│   ├── components/                  ← Pipeline stage implementations
+│   │   ├── prediction_pipeline.py    ← EmailParser + Features + Naive Bayes
+│   │   └── training_pipeline.py      ← End-to-end MLOps training
+│   ├── components/                   ← Pipeline stage implementations
 │   │   ├── data_ingestion.py
 │   │   ├── data_validation.py
 │   │   ├── data_transformation.py
 │   │   ├── model_trainer.py
 │   │   ├── model_evaluation.py
 │   │   └── model_pusher.py
-│   ├── entity/                      ← Config & artifact dataclasses
-│   └── utils/                       ← Logger, exception handler
+│   ├── entity/                       ← Config & artifact dataclasses
+│   └── utils/                        ← Logger, exception handler
 │
-├── templates/                       ← Jinja2 HTML templates
-├── static/
-│   ├── css/style.css
-│   └── js/main.js
-│
-├── notebooks/                       ← EDA + all 6 experiment notebooks
+├── 📓 notebooks/
 │   ├── EDA.ipynb
-│   ├── exp-Naive_Bayes.ipynb        ← ✅ Final model
+│   ├── exp-Naive_Bayes.ipynb         ← ✅ Final model
 │   ├── exp-Logistic_Regression.ipynb
 │   ├── exp-RandomForest.ipynb
 │   ├── exp-SVC.ipynb
 │   ├── exp-XGBoost.ipynb
 │   └── exp-DecisionTree.ipynb
 │
-├── config/schema.yaml
-├── params.yaml
-├── dvc.yaml                         ← DVC pipeline definition
-├── dvc.lock
-├── Dockerfile
-└── requirements.txt
+├── 🎨 templates/                     ← Jinja2 HTML templates
+├── 🖼️ static/css/ · static/js/
+├── ⚙️ config/schema.yaml
+├── 📋 params.yaml
+├── 🔄 dvc.yaml + dvc.lock
+├── 🐳 Dockerfile
+└── 📦 requirements.txt
 ```
 
 ---
@@ -295,13 +346,13 @@ Deep-Shield-Mail/
 ## 🚀 Local Setup
 
 ```bash
-# 1. Clone repo
+# 1. Clone the repository
 git clone https://github.com/kaushik-chariya/Deep-Shield-Mail.git
 cd Deep-Shield-Mail
 
-# 2. Create virtual environment
+# 2. Create & activate virtual environment
 python3 -m venv venv
-source venv/bin/activate
+source venv/bin/activate          # Windows: venv\Scripts\activate
 
 # 3. Install dependencies
 pip install -r requirements.txt
@@ -312,24 +363,26 @@ export GOOGLE_CLIENT_SECRET=your_client_secret
 export REDIRECT_URI=http://localhost:8000/auth/gmail/callback
 export FLASK_SECRET_KEY=your_secret_key
 
-# 5. Pull data & run pipeline
+# 5. Pull data & reproduce pipeline
 dvc pull
 dvc repro
 
-# 6. Run the app
+# 6. Launch the app
 gunicorn --workers 2 --threads 2 --timeout 300 \
   --bind 0.0.0.0:8000 serving.api.app:app
 ```
+
+Open **http://localhost:8000** in your browser.
 
 ---
 
 ## 🐳 Docker
 
 ```bash
-# Build
+# Build image
 docker build -t deep-shield-mail .
 
-# Run
+# Run container
 docker run -d \
   --name deep-shield-mail \
   --restart unless-stopped \
@@ -348,31 +401,33 @@ docker run -d \
 
 ## 🔌 API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | Landing page |
-| `/auth/gmail` | GET | Gmail OAuth2 login |
-| `/auth/gmail/callback` | GET | OAuth callback |
-| `/inbox` | GET | Dashboard |
-| `/inbox/emails` | GET | Inbox Analysis page |
-| `/inbox/history` | GET | Threat History page |
-| `/email/<id>` | GET | Email detail view |
-| `/api/emails?limit=50` | GET | Fetch Gmail inbox |
-| `/api/scan` | POST | Scan & classify emails |
-| `/api/predict` | POST | Predict single email |
-| `/api/predict/manual` | POST | Manual email analysis |
-| `/health` | GET | Health check |
-| `/logout` | GET | Logout & clear session |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/` | Landing page |
+| `GET` | `/auth/gmail` | Gmail OAuth2 login |
+| `GET` | `/auth/gmail/callback` | OAuth callback handler |
+| `GET` | `/inbox` | Dashboard view |
+| `GET` | `/inbox/emails` | Inbox Analysis page |
+| `GET` | `/inbox/history` | Threat History page |
+| `GET` | `/email/<id>` | Email detail view |
+| `GET` | `/api/emails?limit=50` | Fetch Gmail inbox JSON |
+| `POST` | `/api/scan` | Scan & classify email batch |
+| `POST` | `/api/predict` | Predict single email |
+| `POST` | `/api/predict/manual` | Manual email text analysis |
+| `GET` | `/health` | Health check |
+| `GET` | `/logout` | Logout & clear session |
 
 ---
 
 ## 🔐 Security & Privacy
 
-- Gmail OAuth2 — **read-only** scope — no send/delete permissions
-- **Zero email storage** — scan results cleared on logout
-- SSL/TLS via **Let's Encrypt**
-- Session-based auth, no passwords stored
-- File-based session storage — **no cookie overflow**
+```
+✅ Gmail OAuth2        →  Read-only scope — no send/delete permissions
+✅ Zero Email Storage  →  Scan results cleared on logout
+✅ SSL/TLS             →  Let's Encrypt certificate — HTTPS enforced
+✅ Session Auth        →  No passwords stored, file-based sessions
+✅ No Cookie Overflow  →  File-based session storage
+```
 
 ---
 
@@ -380,11 +435,11 @@ docker run -d \
 
 <div align="center">
 
-**Kaushik Chariya**
+### Kaushik Chariya
 
 [![GitHub](https://img.shields.io/badge/GitHub-kaushik--chariya-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/kaushik-chariya)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Kaushik_Chariya-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/kaushik-chariya)
-[![Live App](https://img.shields.io/badge/🌐_Live_App-deepshieldmail.duckdns.org-00B4CC?style=for-the-badge)](https://deepshieldmail.duckdns.org)
+[![Live App](https://img.shields.io/badge/🌐%20Live%20App-deepshieldmail.duckdns.org-00B4CC?style=for-the-badge)](https://deepshieldmail.duckdns.org)
 
 </div>
 
@@ -392,12 +447,14 @@ docker run -d \
 
 ## 📄 License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
 ---
 
 <div align="center">
 
-Made with ❤️ | **MLOps · NLP · Naive Bayes · Flask · Docker · AWS · MLflow · DVC**
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:00B4CC,100:1a1a2e&height=120&section=footer" width="100%"/>
+
+**Made with ❤️ · MLOps · NLP · Naive Bayes · Flask · Docker · AWS · MLflow · DVC**
 
 </div>
