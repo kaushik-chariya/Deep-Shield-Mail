@@ -76,9 +76,11 @@ def get_pipeline() -> PredictionPipeline:
 
 GOOGLE_CLIENT_ID     = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
-GOOGLE_SCOPES        = [
+GOOGLE_SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
-    "openid", "email", "profile",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "openid",
 ]
 
 
